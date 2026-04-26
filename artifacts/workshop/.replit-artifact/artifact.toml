@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Workshop Finance"
+version = "1.0.0"
+id = "artifacts/workshop"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20070
+
+[services.development]
+run = "pnpm --filter @workspace/workshop run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/workshop", "run", "build" ]
+publicDir = "artifacts/workshop/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20070"
+BASE_PATH = "/"

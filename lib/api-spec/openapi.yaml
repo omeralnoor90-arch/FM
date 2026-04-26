@@ -1,0 +1,801 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: Workshop Finance API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+  - name: workers
+  - name: jobs
+  - name: expenses
+  - name: parts
+  - name: settings
+  - name: analytics
+  - name: Storage
+    description: Object storage upload and serving endpoints.
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HealthStatus" }
+
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get workshop settings
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Settings" }
+    put:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update workshop settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateSettingsBody" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Settings" }
+
+  /workers:
+    get:
+      operationId: listWorkers
+      tags: [workers]
+      summary: List all workers
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Worker" }
+    post:
+      operationId: createWorker
+      tags: [workers]
+      summary: Add a worker
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateWorkerBody" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Worker" }
+  /workers/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    get:
+      operationId: getWorker
+      tags: [workers]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkerDetail" }
+    put:
+      operationId: updateWorker
+      tags: [workers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateWorkerBody" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Worker" }
+    delete:
+      operationId: deleteWorker
+      tags: [workers]
+      responses:
+        "204": { description: Deleted }
+
+  /workers/{id}/ledger:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+      - { name: from, in: query, schema: { type: string, format: date }, description: "Filter start date (inclusive)" }
+      - { name: to, in: query, schema: { type: string, format: date }, description: "Filter end date (inclusive)" }
+    get:
+      operationId: getWorkerLedger
+      tags: [workers]
+      summary: Get a worker's full financial ledger for a date range
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkerLedger" }
+
+  /jobs:
+    get:
+      operationId: listJobs
+      tags: [jobs]
+      summary: List jobs
+      parameters:
+        - { name: workerId, in: query, schema: { type: integer } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Job" }
+    post:
+      operationId: createJob
+      tags: [jobs]
+      summary: Record a job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateJobBody" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+  /jobs/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    delete:
+      operationId: deleteJob
+      tags: [jobs]
+      responses:
+        "204": { description: Deleted }
+
+  /jobs/{id}/expenses:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    put:
+      operationId: updateJobExpenses
+      tags: [jobs]
+      summary: Replace all expense lines for a job and recalculate payouts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expenseLines]
+              properties:
+                expenseLines:
+                  type: array
+                  items:
+                    type: object
+                    required: [description, amount]
+                    properties:
+                      description: { type: string }
+                      amount: { type: number }
+                      paidByWorkerId: { type: integer, nullable: true }
+      responses:
+        "200":
+          description: Updated job
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+
+  /expenses:
+    get:
+      operationId: listExpenses
+      tags: [expenses]
+      parameters:
+        - { name: workerId, in: query, schema: { type: integer } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Expense" }
+    post:
+      operationId: createExpense
+      tags: [expenses]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateExpenseBody" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Expense" }
+  /expenses/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    delete:
+      operationId: deleteExpense
+      tags: [expenses]
+      responses:
+        "204": { description: Deleted }
+
+  /parts:
+    get:
+      operationId: listParts
+      tags: [parts]
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Part" }
+    post:
+      operationId: createPart
+      tags: [parts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreatePartBody" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Part" }
+  /parts/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    delete:
+      operationId: deletePart
+      tags: [parts]
+      responses:
+        "204": { description: Deleted }
+
+  /analytics/summary:
+    get:
+      operationId: getSummary
+      tags: [analytics]
+      summary: Overall financial summary
+      parameters:
+        - { name: period, in: query, schema: { type: string, enum: [week, month, all] } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Summary" }
+
+  /analytics/by-worker:
+    get:
+      operationId: getByWorker
+      tags: [analytics]
+      summary: Per-worker earnings & expenses
+      parameters:
+        - { name: period, in: query, schema: { type: string, enum: [week, month, all] } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WorkerStats" }
+
+  /analytics/timeseries:
+    get:
+      operationId: getTimeseries
+      tags: [analytics]
+      summary: Income/expense over time
+      parameters:
+        - { name: bucket, in: query, schema: { type: string, enum: [day, week, month] } }
+        - { name: period, in: query, schema: { type: string, enum: [week, month, all] } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TimeBucket" }
+
+  /analytics/balances:
+    get:
+      operationId: getBalances
+      tags: [analytics]
+      summary: Cash and card balances available to the workshop
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Balances" }
+
+  /analytics/recent:
+    get:
+      operationId: getRecentActivity
+      tags: [analytics]
+      summary: Recent activity feed
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Activity" }
+
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UploadUrlRequest" }
+      responses:
+        "200":
+          description: Presigned upload URL generated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UploadUrlResponse" }
+        "400":
+          description: Invalid fields.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+        "500":
+          description: Failed to generate upload URL.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an object entity
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Object content streamed.
+          content:
+            "*/*":
+              schema: { type: string, format: binary }
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+
+  /jobs/{id}/attachments:
+    get:
+      operationId: listJobAttachments
+      tags: [jobs]
+      summary: List attachments for a job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/JobAttachment" }
+    post:
+      operationId: createJobAttachment
+      tags: [jobs]
+      summary: Record a new attachment for a job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateJobAttachmentBody" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobAttachment" }
+
+  /jobs/{id}/attachments/{attachmentId}:
+    delete:
+      operationId: deleteJobAttachment
+      tags: [jobs]
+      summary: Delete a job attachment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: attachmentId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status: { type: string }
+      required: [status]
+
+    Settings:
+      type: object
+      required: [id, currency, cardFeePercent, defaultWorkerPercent, defaultWorkshopPercent]
+      properties:
+        id: { type: integer }
+        currency: { type: string }
+        cardFeePercent: { type: number, description: "Card processing deduction (e.g. 15)" }
+        defaultWorkerPercent: { type: number }
+        defaultWorkshopPercent: { type: number }
+
+    UpdateSettingsBody:
+      type: object
+      properties:
+        currency: { type: string }
+        cardFeePercent: { type: number }
+        defaultWorkerPercent: { type: number }
+        defaultWorkshopPercent: { type: number }
+
+    Worker:
+      type: object
+      required: [id, name, workerPercent, workshopPercent, equityPercent, active]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        workerPercent: { type: number, description: "% of net job revenue going to this worker" }
+        workshopPercent: { type: number, description: "% going to workshop" }
+        equityPercent: { type: number, description: "Workshop equity share (informational)" }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    WorkerDetail:
+      allOf:
+        - $ref: "#/components/schemas/Worker"
+        - type: object
+          properties:
+            totalEarned: { type: number }
+            totalExpenses: { type: number }
+            totalCashCollected: { type: number }
+            totalReimbursements: { type: number }
+            netBalance: { type: number }
+            jobCount: { type: integer }
+
+    LedgerEntry:
+      type: object
+      required: [id, date, type, label, amount]
+      properties:
+        id: { type: string, description: "Unique entry id (e.g. job-1, exp-3)" }
+        date: { type: string, format: date-time }
+        type:
+          type: string
+          enum: [job_earned, cash_collected, expense_reimbursement, advance_deduction]
+          description: "job_earned = worker share from a job; cash_collected = worker received cash (debit); expense_reimbursement = worker paid job expense out of pocket (credit); advance_deduction = workshop advance/expense tied to worker (debit)"
+        label: { type: string, description: "Human-readable description, e.g. 'Engine rebuild – Earned'" }
+        amount: { type: number, description: "Always positive; sign determined by type" }
+        jobId: { type: integer, nullable: true }
+        sign: { type: integer, enum: [1, -1], description: "+1 means workshop owes worker, -1 means worker owes workshop" }
+
+    WorkerLedger:
+      type: object
+      required: [workerId, workerName, from, to, entries, totalEarned, totalCashCollected, totalReimbursements, totalDeductions, netBalance]
+      properties:
+        workerId: { type: integer }
+        workerName: { type: string }
+        from: { type: string, format: date-time, nullable: true }
+        to: { type: string, format: date-time, nullable: true }
+        entries:
+          type: array
+          items: { $ref: "#/components/schemas/LedgerEntry" }
+        totalEarned: { type: number, description: "Sum of job shares (credit)" }
+        totalCashCollected: { type: number, description: "Sum of gross amounts collected in cash (debit)" }
+        totalReimbursements: { type: number, description: "Sum of job expense lines paid out of pocket (credit)" }
+        totalDeductions: { type: number, description: "Sum of advances/workshop expenses tied to this worker (debit)" }
+        netBalance: { type: number, description: "Positive = workshop owes worker; negative = worker owes workshop" }
+
+    CreateWorkerBody:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        workerPercent: { type: number }
+        workshopPercent: { type: number }
+        equityPercent: { type: number }
+
+    UpdateWorkerBody:
+      type: object
+      properties:
+        name: { type: string }
+        workerPercent: { type: number }
+        workshopPercent: { type: number }
+        equityPercent: { type: number }
+        active: { type: boolean }
+
+    JobExpenseLine:
+      type: object
+      required: [description, amount]
+      properties:
+        id: { type: integer }
+        description: { type: string }
+        amount: { type: number }
+        paidByWorkerId: { type: integer, nullable: true, description: "If set, this worker paid the expense out of pocket and will be reimbursed on top of their split" }
+        paidByWorkerName: { type: string, nullable: true }
+
+    JobWorkerShare:
+      type: object
+      required: [id, jobId, workerId, workerName, amount]
+      properties:
+        id: { type: integer }
+        jobId: { type: integer }
+        workerId: { type: integer }
+        workerName: { type: string }
+        amount: { type: number }
+
+    Job:
+      type: object
+      required: [id, jobType, source, paymentMethod, grossAmount, cardFeeAmount, expensesTotal, netAmount, workerShare, workshopShare, vatPaidByCustomer, occurredAt]
+      properties:
+        id: { type: integer }
+        jobType: { type: string, enum: [single, shared], description: "single = one worker, shared = multiple workers" }
+        workerId: { type: integer, nullable: true }
+        workerName: { type: string, nullable: true }
+        cashReceivedByWorkerId: { type: integer, nullable: true, description: "Worker who physically received the cash payment from the customer" }
+        cashReceivedByName: { type: string, nullable: true, description: "Name of the worker who received the cash" }
+        source: { type: string, description: "Source of income / customer / job description" }
+        paymentMethod: { type: string, enum: [cash, card] }
+        grossAmount: { type: number, description: "Total amount paid by customer" }
+        cardFeeAmount: { type: number, description: "VAT amount removed (only for card when VAT not paid by customer)" }
+        vatPaidByCustomer: { type: boolean, description: "If true (card only), customer paid VAT separately so no VAT is removed from gross" }
+        expensesTotal: { type: number, description: "Sum of job expense lines (parts, commission, etc)" }
+        netAmount: { type: number, description: "Splittable amount = gross - VAT - expenses" }
+        workerShare: { type: number }
+        workshopShare: { type: number }
+        notes: { type: string, nullable: true }
+        expenseLines:
+          type: array
+          items: { $ref: "#/components/schemas/JobExpenseLine" }
+        workerShares:
+          type: array
+          items: { $ref: "#/components/schemas/JobWorkerShare" }
+        occurredAt: { type: string, format: date-time }
+
+    CreateJobBody:
+      type: object
+      required: [source, paymentMethod, grossAmount]
+      properties:
+        jobType: { type: string, enum: [single, shared], description: "single = one worker, shared = multiple workers split manually" }
+        workerId: { type: integer, description: "Required when jobType = single" }
+        cashReceivedByWorkerId: { type: integer, nullable: true, description: "Cash jobs only: which worker physically received the cash from the customer" }
+        workerShares:
+          type: array
+          description: "Required when jobType = shared. Each entry specifies a worker and their manual amount."
+          items:
+            type: object
+            required: [workerId, amount]
+            properties:
+              workerId: { type: integer }
+              amount: { type: number }
+        source: { type: string }
+        paymentMethod: { type: string, enum: [cash, card] }
+        grossAmount: { type: number, description: "Total amount paid by customer" }
+        vatPaidByCustomer: { type: boolean, description: "Card only. true = customer paid VAT on top (workshop keeps full gross). false = VAT included in gross and is removed before splitting." }
+        expenseLines:
+          type: array
+          items:
+            type: object
+            required: [description, amount]
+            properties:
+              description: { type: string }
+              amount: { type: number }
+              paidByWorkerId: { type: integer, nullable: true, description: "Worker who paid this expense out of pocket" }
+        notes: { type: string }
+        occurredAt: { type: string, format: date-time }
+
+    Expense:
+      type: object
+      required: [id, description, amount, category, occurredAt]
+      properties:
+        id: { type: integer }
+        description: { type: string }
+        amount: { type: number }
+        category: { type: string, description: "e.g. rent, utilities, supplies, advance, other" }
+        workerId: { type: integer, nullable: true, description: "Optional - tied to a specific worker (e.g. advance/loan)" }
+        workerName: { type: string, nullable: true }
+        paidWith: { type: string, enum: [cash, card] }
+        occurredAt: { type: string, format: date-time }
+
+    CreateExpenseBody:
+      type: object
+      required: [description, amount, category, paidWith]
+      properties:
+        description: { type: string }
+        amount: { type: number }
+        category: { type: string }
+        workerId: { type: integer, nullable: true }
+        paidWith: { type: string, enum: [cash, card] }
+        occurredAt: { type: string, format: date-time }
+
+    Part:
+      type: object
+      required: [id, name, amount, paidWith, occurredAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        supplier: { type: string, nullable: true }
+        amount: { type: number }
+        quantity: { type: number }
+        paidWith: { type: string, enum: [cash, card] }
+        jobId: { type: integer, nullable: true }
+        occurredAt: { type: string, format: date-time }
+
+    CreatePartBody:
+      type: object
+      required: [name, amount, paidWith]
+      properties:
+        name: { type: string }
+        supplier: { type: string }
+        amount: { type: number }
+        quantity: { type: number }
+        paidWith: { type: string, enum: [cash, card] }
+        jobId: { type: integer, nullable: true }
+        occurredAt: { type: string, format: date-time }
+
+    Summary:
+      type: object
+      required:
+        - grossIncome
+        - cardFees
+        - netIncome
+        - workerPayouts
+        - workshopRevenue
+        - generalExpenses
+        - partsCost
+        - workshopProfit
+        - jobCount
+        - cashIncome
+        - cardIncome
+      properties:
+        grossIncome: { type: number }
+        cardFees: { type: number }
+        netIncome: { type: number }
+        workerPayouts: { type: number }
+        workshopRevenue: { type: number }
+        generalExpenses: { type: number }
+        partsCost: { type: number }
+        workshopProfit: { type: number }
+        jobCount: { type: integer }
+        cashIncome: { type: number }
+        cardIncome: { type: number }
+
+    WorkerStats:
+      type: object
+      required: [workerId, name, jobCount, grossIncome, workerEarned, workshopEarned, expenses, netOwed]
+      properties:
+        workerId: { type: integer }
+        name: { type: string }
+        jobCount: { type: integer }
+        grossIncome: { type: number }
+        workerEarned: { type: number }
+        workshopEarned: { type: number }
+        expenses: { type: number, description: "Expenses tied to this worker (advances/loans)" }
+        netOwed: { type: number, description: "What worker should receive at end of period" }
+
+    TimeBucket:
+      type: object
+      required: [bucket, income, expenses, profit]
+      properties:
+        bucket: { type: string }
+        income: { type: number }
+        expenses: { type: number }
+        profit: { type: number }
+
+    Balances:
+      type: object
+      required: [cashOnHand, cardBalance, totalAvailable]
+      properties:
+        cashOnHand: { type: number, description: "Workshop's cash share minus cash expenses" }
+        cardBalance: { type: number, description: "Workshop's card share minus card expenses" }
+        totalAvailable: { type: number }
+
+    Activity:
+      type: object
+      required: [id, kind, label, amount, occurredAt]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [job, expense, part] }
+        label: { type: string }
+        amount: { type: number }
+        occurredAt: { type: string, format: date-time }
+
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name: { type: string, minLength: 1 }
+        size: { type: integer, minimum: 1 }
+        contentType: { type: string, minLength: 1 }
+
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL: { type: string, format: uri }
+        objectPath: { type: string }
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+
+    JobAttachment:
+      type: object
+      required: [id, jobId, purpose, label, objectPath, originalName, mimetype, createdAt]
+      properties:
+        id: { type: integer }
+        jobId: { type: integer }
+        purpose: { type: string, enum: [card_invoice, expense_receipt, other] }
+        label: { type: string }
+        objectPath: { type: string }
+        originalName: { type: string }
+        mimetype: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    CreateJobAttachmentBody:
+      type: object
+      required: [purpose, label, objectPath, originalName, mimetype]
+      properties:
+        purpose: { type: string, enum: [card_invoice, expense_receipt, other] }
+        label: { type: string }
+        objectPath: { type: string }
+        originalName: { type: string }
+        mimetype: { type: string }

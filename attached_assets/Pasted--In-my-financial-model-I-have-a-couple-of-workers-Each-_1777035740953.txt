@@ -1,0 +1,31 @@
+  In my financial model, I have a couple of workers. Each worker has 50%: 50% of the work should go to the worker, and 50% of the work should go to the workshop.
+
+Rule 1: Split
+- 50% to the worker
+- 50% to the workshop
+
+Rule 2: Card payments and VAT
+- If the customer paid through the card, there is VAT, and the VAT should be excluded from the total payment.
+- Example: if the work is 100 and VAT is 15%, the customer pays 115. In our system, we mark that the customer paid the VAT. The net amount we received (without VAT) is 100, and it is split 50/50 between the worker and the workshop.
+- If the customer says he does not want to pay the VAT, we unmark “the customer paid the VAT.” Then the total amount we received is 100, and we should deduct the VAT amount out of 100. The remaining amount is split 50% to the workshop and 50% to the worker.
+
+Rule 3: Cash received by the worker
+- If the worker received the money as cash, then 50% of that cash goes to the worker and 50% goes to the workshop.
+
+For the report and the main dashboard:
+- I want to separate cash from card.
+- I need to know the total amount of cash available and the total amount of card.
+- In some cases, we need to pay back the worker by the end of the week (pay him what he earned). That amount should be deducted from the available cash, even if it goes minus, so we know there is a minus value in our cash system.
+- Keep the card separated.
+
+For the final report:
+- I want a full analysis of cash, separated from a full analysis of card work.
+- VAT should be separated as well.
+- Added expenses, deductions, or reimbursement should be included.
+
+Expenses, deductions, and reimbursement:
+- In case there’s a deduction, that amount should be deducted from the cash.
+- Reimbursement depends on the situation. If we have expenses, the amount of expenses should be deducted directly from the available cash.
+- If we have parts that we purchased, or one of the workers paid from his own pocket, we should reimburse him and give him his money back. This should be considered money that we have to pay back, and it should be deducted from the total cash that we have.
+
+I want to go through my financial calculations and do the correct adjustment to make sure that everything has been taken care of.
