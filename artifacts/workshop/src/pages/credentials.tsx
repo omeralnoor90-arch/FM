@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, KeyRound, Trash2, RefreshCw, ShieldAlert } from "lucide-react";
+import { Plus, KeyRound, Trash2, RefreshCw, ShieldAlert, ShieldCheck } from "lucide-react";
 import { format } from "date-fns";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -67,6 +67,20 @@ async function deleteCredential(id: number) {
   if (!res.ok) throw new Error("Failed to delete");
 }
 
+async function changeRole(id: number, role: "worker" | "manager") {
+  const res = await fetch(`${API_BASE}/api/admin/credentials/${id}/role`, {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? "Failed to change role");
+  }
+  return res.json();
+}
+
 export default function CredentialsPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -117,9 +131,28 @@ export default function CredentialsPage() {
     onError: (err: Error) => toast({ title: t("credentials.error"), description: err.message, variant: "destructive" }),
   });
 
+  const changeRoleMut = useMutation({
+    mutationFn: ({ id, role }: { id: number; role: "worker" | "manager" }) => changeRole(id, role),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/credentials"] });
+      toast({ title: t("credentials.roleUpdated") });
+    },
+    onError: (err: Error) => toast({ title: t("credentials.error"), description: err.message, variant: "destructive" }),
+  });
+
   const workersWithoutAccess = workers?.filter(
     (w) => !credentials?.some((c) => c.workerId === w.id)
   ) ?? [];
+
+  function getRoleBadge(role: string) {
+    if (role === "admin") {
+      return <Badge variant="default" className="text-xs">{t("credentials.admin")}</Badge>;
+    }
+    if (role === "manager") {
+      return <Badge variant="secondary" className="text-xs bg-blue-500/15 text-blue-600 border-blue-500/30">{t("credentials.manager")}</Badge>;
+    }
+    return <Badge variant="secondary" className="text-xs">{t("credentials.worker")}</Badge>;
+  }
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
@@ -147,9 +180,7 @@ export default function CredentialsPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium">{cred.username}</span>
-                    <Badge variant={cred.role === "admin" ? "default" : "secondary"} className="text-xs">
-                      {cred.role === "admin" ? t("credentials.admin") : t("credentials.worker")}
-                    </Badge>
+                    {getRoleBadge(cred.role)}
                     {cred.mustChangePassword && (
                       <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-600 gap-1">
                         <ShieldAlert className="w-3 h-3" /> {t("credentials.mustChangePassword")}
@@ -163,7 +194,27 @@ export default function CredentialsPage() {
                     {t("credentials.createdAt")} {format(new Date(cred.createdAt), "MMM d, yyyy")}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  {cred.role !== "admin" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() =>
+                        changeRoleMut.mutate({
+                          id: cred.id,
+                          role: cred.role === "manager" ? "worker" : "manager",
+                        })
+                      }
+                      disabled={changeRoleMut.isPending}
+                      title={t("credentials.changeRole")}
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      {cred.role === "manager"
+                        ? t("credentials.demoteToWorker")
+                        : t("credentials.promoteToManager")}
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
