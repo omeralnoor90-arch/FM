@@ -5,7 +5,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Printer,
-  Download,
   FileText,
   Image as ImageIcon,
   TrendingUp,
@@ -13,12 +12,15 @@ import {
   Users,
   ReceiptText,
   Wrench,
-  ArrowDownCircle,
+  Banknote,
+  CreditCard,
+  Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGetSettings } from "@workspace/api-client-react";
+import { formatCurrency } from "@/lib/format";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 type PeriodType = "week" | "month" | "quarter" | "year";
@@ -77,58 +79,44 @@ interface ReportWorker {
   earned: number;
   cashCollected: number;
   reimbursements: number;
-  adjReimbursements: number;
   adjDeductions: number;
   netBalance: number;
   totalPaid: number;
   remaining: number;
 }
 
-interface CashAnalysis {
-  revenue: number;
-  workerShare: number;
-  workshopShare: number;
-  directExpenses: number;
-  parts: number;
-  adjDeductions: number;
-  adjReimbursements: number;
-  workerExpenseReimb: number;
-  jobLineReimb: number;
-  cashNetProfit: number;
-  jobCount: number;
-}
-
-interface CardAnalysis {
-  revenue: number;
-  vat: number;
-  netRevenue: number;
-  workerShare: number;
-  workshopShare: number;
-  directExpenses: number;
-  parts: number;
-  cardNet: number;
-  jobCount: number;
-}
-
 interface ReportSummary {
   jobCount: number;
+  // Revenue
   totalRevenue: number;
-  totalCashRevenue: number;
-  totalCardRevenue: number;
+  cashRevenue: number;
+  cardRevenue: number;
+  cardNetRevenue: number;
+  // VAT
+  totalVat: number;
+  // Shares
   totalWorkerShare: number;
   totalWorkshopShare: number;
-  totalWorkshopExpenses: number;
-  totalWorkerReimbursements: number;
-  totalJobExpenseReimb: number;
+  // Expenses (direct only — workerId = null)
+  cashDirectExp: number;
+  cardDirectExp: number;
+  totalDirectExp: number;
+  // Parts
+  cashParts: number;
+  cardParts: number;
   totalParts: number;
-  totalVat: number;
-  totalAdjReimbursements: number;
-  totalAdjDeductions: number;
-  workshopNet: number;
-  workshopNetWithVat: number;
-  // Cash vs card split
-  cashAnalysis: CashAnalysis;
-  cardAnalysis: CardAnalysis;
+  // Detail (informational)
+  workerExpenseReimb: number;
+  totalJobExpenseReimb: number;
+  adjReimb: number;
+  adjDeduct: number;
+  // Period profit (period-scoped simplified formula)
+  cashBalance: number;
+  cardBalance: number;
+  workshopProfit: number;
+  // All-time balances — identical to analytics/balances (matches dashboard cards)
+  allTimeCashOnHand: number;
+  allTimeCardBalance: number;
 }
 
 interface ReportData {
@@ -149,8 +137,7 @@ function getPeriodRange(type: PeriodType, offset: number): { from: Date; to: Dat
   let label: string;
 
   if (type === "week") {
-    // Week starts Monday
-    const day = now.getDay(); // 0=Sun
+    const day = now.getDay();
     const diffToMon = (day === 0 ? -6 : 1 - day) + offset * 7;
     from = new Date(now);
     from.setDate(now.getDate() + diffToMon);
@@ -183,7 +170,7 @@ function getPeriodRange(type: PeriodType, offset: number): { from: Date; to: Dat
 
 // ─── Utility ──────────────────────────────────────────────────────────────
 function fmt(val: number, currency: string) {
-  return `${currency} ${Math.abs(val).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return formatCurrency(val, currency);
 }
 
 function fmtDate(iso: string) {
@@ -193,6 +180,131 @@ function fmtDate(iso: string) {
 function AttachmentIcon({ mimetype }: { mimetype: string }) {
   if (mimetype.startsWith("image/")) return <ImageIcon className="h-3.5 w-3.5" />;
   return <FileText className="h-3.5 w-3.5" />;
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────
+function SummaryCard({
+  icon,
+  label,
+  value,
+  subLabel,
+  color = "default",
+  highlighted = false,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  subLabel?: string;
+  color?: string;
+  highlighted?: boolean;
+}) {
+  const colorMap: Record<string, string> = {
+    emerald: "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800",
+    blue: "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800",
+    amber: "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800",
+    rose: "bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800",
+    purple: "bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800",
+    teal: "bg-teal-50 dark:bg-teal-950/20 border-teal-200 dark:border-teal-800",
+    default: "bg-card border-border",
+  };
+  return (
+    <div className={`rounded-lg border p-4 ${colorMap[color] ?? colorMap.default} ${highlighted ? "ring-2 ring-primary/30" : ""}`}>
+      <div className="flex items-center gap-2 mb-2">
+        {icon}
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</span>
+      </div>
+      <div className="text-xl font-bold font-mono">{value}</div>
+      {subLabel && <div className="text-[11px] text-muted-foreground mt-1">{subLabel}</div>}
+    </div>
+  );
+}
+
+function AnalysisRow({
+  label,
+  value,
+  currency,
+  deduct = false,
+  bold = false,
+  sub = false,
+  highlight,
+}: {
+  label: string;
+  value: number;
+  currency: string;
+  deduct?: boolean;
+  bold?: boolean;
+  sub?: boolean;
+  highlight?: "emerald" | "blue" | "rose";
+}) {
+  const colorClass = highlight === "emerald"
+    ? "text-emerald-700 dark:text-emerald-400"
+    : highlight === "blue"
+    ? "text-blue-700 dark:text-blue-400"
+    : highlight === "rose"
+    ? "text-rose-600 dark:text-rose-400"
+    : deduct
+    ? "text-destructive"
+    : sub
+    ? "text-muted-foreground"
+    : "";
+
+  return (
+    <div className={`flex justify-between items-center text-sm py-0.5 ${bold ? "font-semibold" : ""} ${colorClass}`}>
+      <span className={sub ? "text-xs" : ""}>{label}</span>
+      <span className="font-mono tabular-nums">
+        {deduct ? `-${fmt(Math.abs(value), currency)}` : fmt(value, currency)}
+      </span>
+    </div>
+  );
+}
+
+function ReportSection({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-border overflow-hidden mb-6">
+      <div className="flex items-center gap-2 px-4 py-3 bg-muted/30 border-b border-border">
+        {icon}
+        <h3 className="font-semibold text-sm">{title}</h3>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Th({ children, right }: { children?: React.ReactNode; right?: boolean }) {
+  return (
+    <th className={`px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide bg-muted/40 border-b border-border ${right ? "text-right" : "text-left"}`}>
+      {children}
+    </th>
+  );
+}
+
+function Td({ children, right }: { children?: React.ReactNode; right?: boolean }) {
+  return (
+    <td className={`px-3 py-2 text-sm border-b border-border ${right ? "text-right font-mono" : ""}`}>
+      {children}
+    </td>
+  );
+}
+
+function AttachmentLinks({ attachments }: { attachments: ReportAttachment[] }) {
+  if (!attachments || attachments.length === 0) return <span className="text-muted-foreground/40 text-xs">—</span>;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {attachments.map((a) => (
+        <a
+          key={a.id}
+          href={a.downloadPath}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-700 dark:text-blue-400 hover:bg-blue-500/20 transition-colors"
+          title={a.originalName}
+        >
+          <AttachmentIcon mimetype={a.mimetype} />
+          {a.label || a.originalName}
+        </a>
+      ))}
+    </div>
+  );
 }
 
 // ─── Reports Page ─────────────────────────────────────────────────────────
@@ -219,15 +331,12 @@ export default function ReportsPage() {
     staleTime: 60_000,
   });
 
-  const handlePrint = useCallback(() => {
-    window.print();
-  }, []);
+  const handlePrint = useCallback(() => window.print(), []);
 
   const s = data?.summary;
 
   return (
     <div>
-      {/* Print-only global styles */}
       <style>{`
         @media print {
           body * { visibility: hidden; }
@@ -265,7 +374,6 @@ export default function ReportsPage() {
               <TabsTrigger value="year">{t("reports.year")}</TabsTrigger>
             </TabsList>
           </Tabs>
-
           <div className="flex items-center gap-2 ms-auto">
             <Button variant="outline" size="icon" onClick={() => setOffset(o => o - 1)}>
               {isRtl ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
@@ -277,20 +385,14 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        {/* ── Loading / Error ── */}
         {isLoading && (
-          <div className="flex items-center justify-center h-48 text-muted-foreground">
-            {t("common.loading")}
-          </div>
+          <div className="flex items-center justify-center h-48 text-muted-foreground">{t("common.loading")}</div>
         )}
         {error && (
-          <div className="flex items-center justify-center h-48 text-destructive">
-            {t("common.error")}
-          </div>
+          <div className="flex items-center justify-center h-48 text-destructive">{t("common.error")}</div>
         )}
 
-        {/* ── Printable Report ── */}
-        {data && (
+        {data && s && (
           <div id="report-printable" ref={printRef} dir={isRtl ? "rtl" : "ltr"}>
             {/* Print header */}
             <div className="hidden print:block mb-6">
@@ -299,109 +401,100 @@ export default function ReportsPage() {
               <p className="text-xs text-muted-foreground">{t("reports.generatedAt")}: {new Date(data.generatedAt).toLocaleString()}</p>
             </div>
 
-            {/* ── Summary Cards ── */}
+            {/* ── Top summary cards — same metrics as dashboard ── */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-              <SummaryCard icon={<TrendingUp className="h-4 w-4 text-emerald-600" />} label={t("reports.totalRevenue")} value={fmt(s!.totalRevenue, currency)} color="emerald"
-                formula={t("reports.formulaRevenue")} />
-              <SummaryCard icon={<Briefcase className="h-4 w-4 text-blue-600" />} label={t("reports.workshopShare")} value={fmt(s!.totalWorkshopShare, currency)} color="blue"
-                formula={t("reports.formulaWorkshopShare")} />
-              <SummaryCard icon={<Users className="h-4 w-4 text-amber-600" />} label={t("reports.workerShare")} value={fmt(s!.totalWorkerShare, currency)} color="amber"
-                formula={t("reports.formulaWorkerShare")} />
-              <SummaryCard icon={<ReceiptText className="h-4 w-4 text-rose-600" />} label={t("reports.expenses")} value={fmt(s!.totalWorkshopExpenses, currency)} color="rose"
-                formula={t("reports.formulaExpenses")} />
+              <SummaryCard
+                icon={<TrendingUp className="h-4 w-4 text-emerald-600" />}
+                label={t("reports.totalRevenue")}
+                value={fmt(s.totalRevenue, currency)}
+                subLabel={`${t("reports.cash")}: ${fmt(s.cashRevenue, currency)}  |  ${t("reports.card")}: ${fmt(s.cardRevenue, currency)}`}
+                color="emerald"
+              />
+              <SummaryCard
+                icon={<Users className="h-4 w-4 text-amber-600" />}
+                label={t("reports.workerShare")}
+                value={fmt(s.totalWorkerShare, currency)}
+                color="amber"
+              />
+              <SummaryCard
+                icon={<Receipt className="h-4 w-4 text-orange-500" />}
+                label={t("reports.totalVatReport")}
+                value={fmt(s.totalVat, currency)}
+                subLabel={t("reports.formulaVat")}
+                color="amber"
+              />
+              <SummaryCard
+                icon={<Briefcase className="h-4 w-4 text-teal-600" />}
+                label={t("dashboard.monthlyProfit")}
+                value={fmt(s.workshopProfit, currency)}
+                color={s.workshopProfit >= 0 ? "teal" : "rose"}
+                highlighted
+              />
             </div>
+
+            {/* Expenses + Parts row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-              <SummaryCard icon={<Wrench className="h-4 w-4 text-purple-600" />} label={t("reports.parts")} value={fmt(s!.totalParts, currency)} color="purple"
-                formula={t("reports.formulaParts")} />
-              <SummaryCard icon={<ArrowDownCircle className="h-4 w-4 text-orange-500" />} label={t("reports.totalVatReport")} value={fmt(s!.totalVat, currency)} color="amber"
-                formula={t("reports.formulaVat")} />
-              <SummaryCard icon={<ArrowDownCircle className="h-4 w-4 text-teal-600" />} label={t("reports.netProfit")} value={fmt(s!.workshopNet, currency)} color={s!.workshopNet >= 0 ? "teal" : "rose"}
-                formula={t("reports.formulaNetProfit")} />
-              <SummaryCard icon={<ArrowDownCircle className="h-4 w-4 text-emerald-600" />} label={t("reports.netProfitWithVat")} value={fmt(s!.workshopNetWithVat, currency)} color={s!.workshopNetWithVat >= 0 ? "teal" : "rose"} highlighted
-                formula={t("reports.formulaNetProfitVat")} />
+              <SummaryCard
+                icon={<ReceiptText className="h-4 w-4 text-rose-600" />}
+                label={t("reports.expenses")}
+                value={fmt(s.totalDirectExp, currency)}
+                subLabel={`${t("reports.cash")}: ${fmt(s.cashDirectExp, currency)}  |  ${t("reports.card")}: ${fmt(s.cardDirectExp, currency)}`}
+                color="rose"
+              />
+              <SummaryCard
+                icon={<Wrench className="h-4 w-4 text-purple-600" />}
+                label={t("reports.parts")}
+                value={fmt(s.totalParts, currency)}
+                subLabel={`${t("reports.cash")}: ${fmt(s.cashParts, currency)}  |  ${t("reports.card")}: ${fmt(s.cardParts, currency)}`}
+                color="purple"
+              />
+              <SummaryCard
+                icon={<Banknote className="h-4 w-4 text-primary" />}
+                label={t("dashboard.cashOnHand")}
+                value={fmt(s.allTimeCashOnHand, currency)}
+                color={s.allTimeCashOnHand >= 0 ? "emerald" : "rose"}
+              />
+              <SummaryCard
+                icon={<CreditCard className="h-4 w-4 text-secondary" />}
+                label={t("dashboard.cardBalance")}
+                value={fmt(s.allTimeCardBalance, currency)}
+                color={s.allTimeCardBalance >= 0 ? "blue" : "rose"}
+              />
             </div>
 
-            {/* Sub-summary row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm mb-6 p-3 rounded-lg bg-muted/50 border border-border">
-              <div>
-                <span className="text-muted-foreground">{t("reports.jobs")}: </span>
-                <span className="font-semibold">{s!.jobCount}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">{t("reports.cash")}: </span>
-                <span className="font-semibold">{fmt(s!.totalCashRevenue, currency)}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">{t("reports.card")}: </span>
-                <span className="font-semibold">{fmt(s!.totalCardRevenue, currency)}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">{t("reports.reimbursements")}: </span>
-                <span className="font-semibold">{fmt(s!.totalWorkerReimbursements, currency)}</span>
-              </div>
-              {(s!.totalJobExpenseReimb ?? 0) > 0 && (
-                <div>
-                  <span className="text-muted-foreground">{t("reports.jobExpenseReimb")}: </span>
-                  <span className="font-semibold text-orange-600">{fmt(s!.totalJobExpenseReimb, currency)}</span>
-                </div>
-              )}
-              {s!.totalAdjReimbursements > 0 && (
-                <div>
-                  <span className="text-muted-foreground">{t("reports.adjReimbursements")}: </span>
-                  <span className="font-semibold text-blue-700">{fmt(s!.totalAdjReimbursements, currency)}</span>
-                </div>
-              )}
-              {s!.totalAdjDeductions > 0 && (
-                <div>
-                  <span className="text-muted-foreground">{t("reports.adjDeductions")}: </span>
-                  <span className="font-semibold text-red-600">{fmt(s!.totalAdjDeductions, currency)}</span>
-                </div>
-              )}
-            </div>
-
-            {/* ── Cash vs Card Analysis ── */}
+            {/* ── Cash vs Card Breakdown — same formula as dashboard ── */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               {/* CASH */}
               <div className="rounded-lg border-2 border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20 overflow-hidden">
                 <div className="flex items-center gap-2 px-4 py-3 bg-emerald-100 dark:bg-emerald-900/40 border-b border-emerald-200 dark:border-emerald-800">
                   <span className="text-lg">💵</span>
                   <h3 className="font-bold text-emerald-800 dark:text-emerald-300">{t("reports.cashAnalysis")}</h3>
-                  <span className="ms-auto text-xs text-emerald-600 dark:text-emerald-400">{s!.cashAnalysis.jobCount} {t("reports.jobs")}</span>
+                  <span className="ms-auto text-xs text-emerald-600 dark:text-emerald-400">{s.jobCount > 0 ? `${data.jobs.filter(j => j.paymentMethod === "cash").length} ${t("reports.jobs")}` : ""}</span>
                 </div>
                 <div className="p-4 space-y-1 text-sm">
-                  <AnalysisRow label={t("reports.grossRevenue")} value={s!.cashAnalysis.revenue} currency={currency} />
-                  <AnalysisRow label={t("reports.workerShareCol")} value={-s!.cashAnalysis.workerShare} currency={currency} deduct />
-                  <AnalysisRow label={t("reports.workshopShareCol")} value={s!.cashAnalysis.workshopShare} currency={currency} bold />
-                  {s!.cashAnalysis.adjDeductions > 0 && (
-                    <AnalysisRow label={t("reports.adjDeductions")} value={s!.cashAnalysis.adjDeductions} currency={currency} />
-                  )}
-                  {s!.cashAnalysis.adjReimbursements > 0 && (
-                    <AnalysisRow label={t("reports.adjReimbursements")} value={-s!.cashAnalysis.adjReimbursements} currency={currency} deduct />
-                  )}
-                  {s!.cashAnalysis.workerExpenseReimb > 0 && (
-                    <AnalysisRow label={t("reports.workerReimb")} value={-s!.cashAnalysis.workerExpenseReimb} currency={currency} deduct />
-                  )}
-                  {s!.cashAnalysis.jobLineReimb > 0 && (
-                    <AnalysisRow label={t("reports.jobExpenseReimb")} value={-s!.cashAnalysis.jobLineReimb} currency={currency} deduct />
-                  )}
-                  {s!.cashAnalysis.directExpenses > 0 && (
-                    <AnalysisRow label={t("reports.directExpenses")} value={-s!.cashAnalysis.directExpenses} currency={currency} deduct />
-                  )}
-                  {s!.cashAnalysis.parts > 0 && (
-                    <AnalysisRow label={t("reports.parts")} value={-s!.cashAnalysis.parts} currency={currency} deduct />
-                  )}
+                  <AnalysisRow label={t("reports.grossRevenue")} value={s.cashRevenue} currency={currency} />
+                  <AnalysisRow label={t("reports.workerShareCol")} value={s.totalWorkerShare} currency={currency} deduct />
+                  <AnalysisRow label={t("reports.directExpenses")} value={s.cashDirectExp} currency={currency} deduct />
+                  <AnalysisRow label={t("reports.parts")} value={s.cashParts} currency={currency} deduct />
                   <div className="border-t border-emerald-200 dark:border-emerald-800 mt-2 pt-2">
                     <AnalysisRow
-                      label={t("reports.cashNetProfit")}
-                      value={s!.cashAnalysis.cashNetProfit}
+                      label={t("dashboard.cashOnHand")}
+                      value={s.allTimeCashOnHand}
                       currency={currency}
                       bold
-                      highlight={s!.cashAnalysis.cashNetProfit >= 0 ? "emerald" : "rose"}
+                      highlight={s.allTimeCashOnHand >= 0 ? "emerald" : "rose"}
                     />
-                    <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
-                      {t("reports.formulaCashNet")}
-                    </p>
                   </div>
+                  {/* Informational detail */}
+                  {(s.workerExpenseReimb > 0 || s.totalJobExpenseReimb > 0 || s.adjReimb > 0 || s.adjDeduct > 0) && (
+                    <div className="border-t border-emerald-100 dark:border-emerald-900 mt-3 pt-2 space-y-0.5">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">{t("reports.reimbursements")}</p>
+                      {s.workerExpenseReimb > 0 && <AnalysisRow label={t("reports.workerReimb")} value={s.workerExpenseReimb} currency={currency} />}
+                      {s.totalJobExpenseReimb > 0 && <AnalysisRow label={t("reports.jobExpenseReimb")} value={s.totalJobExpenseReimb} currency={currency} />}
+                      {s.adjReimb > 0 && <AnalysisRow label={t("reports.adjReimbursements")} value={s.adjReimb} currency={currency} />}
+                      {s.adjDeduct > 0 && <AnalysisRow label={t("reports.adjDeductions")} value={s.adjDeduct} currency={currency} />}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -410,31 +503,22 @@ export default function ReportsPage() {
                 <div className="flex items-center gap-2 px-4 py-3 bg-blue-100 dark:bg-blue-900/40 border-b border-blue-200 dark:border-blue-800">
                   <span className="text-lg">💳</span>
                   <h3 className="font-bold text-blue-800 dark:text-blue-300">{t("reports.cardAnalysis")}</h3>
-                  <span className="ms-auto text-xs text-blue-600 dark:text-blue-400">{s!.cardAnalysis.jobCount} {t("reports.jobs")}</span>
+                  <span className="ms-auto text-xs text-blue-600 dark:text-blue-400">{s.jobCount > 0 ? `${data.jobs.filter(j => j.paymentMethod !== "cash").length} ${t("reports.jobs")}` : ""}</span>
                 </div>
                 <div className="p-4 space-y-1 text-sm">
-                  <AnalysisRow label={t("reports.grossRevenue")} value={s!.cardAnalysis.revenue} currency={currency} />
-                  <AnalysisRow label={t("reports.vatCollected")} value={s!.cardAnalysis.vat} currency={currency} sub />
-                  <AnalysisRow label={t("reports.netAfterVat")} value={s!.cardAnalysis.netRevenue} currency={currency} bold />
-                  <AnalysisRow label={t("reports.workerShareCol")} value={-s!.cardAnalysis.workerShare} currency={currency} deduct />
-                  <AnalysisRow label={t("reports.workshopShareCol")} value={s!.cardAnalysis.workshopShare} currency={currency} bold />
-                  {s!.cardAnalysis.directExpenses > 0 && (
-                    <AnalysisRow label={t("reports.directExpenses")} value={-s!.cardAnalysis.directExpenses} currency={currency} deduct />
-                  )}
-                  {s!.cardAnalysis.parts > 0 && (
-                    <AnalysisRow label={t("reports.parts")} value={-s!.cardAnalysis.parts} currency={currency} deduct />
-                  )}
+                  <AnalysisRow label={t("reports.grossRevenue")} value={s.cardRevenue} currency={currency} />
+                  <AnalysisRow label={t("reports.vatCollected")} value={s.totalVat} currency={currency} sub />
+                  <AnalysisRow label={t("reports.netAfterVat")} value={s.cardNetRevenue} currency={currency} bold />
+                  <AnalysisRow label={t("reports.directExpenses")} value={s.cardDirectExp} currency={currency} deduct />
+                  <AnalysisRow label={t("reports.parts")} value={s.cardParts} currency={currency} deduct />
                   <div className="border-t border-blue-200 dark:border-blue-800 mt-2 pt-2">
                     <AnalysisRow
-                      label={t("reports.cardNet")}
-                      value={s!.cardAnalysis.cardNet}
+                      label={t("dashboard.cardBalance")}
+                      value={s.allTimeCardBalance}
                       currency={currency}
                       bold
-                      highlight="blue"
+                      highlight={s.allTimeCardBalance >= 0 ? "blue" : "rose"}
                     />
-                    <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
-                      {t("reports.formulaCardNet")}
-                    </p>
                   </div>
                 </div>
               </div>
@@ -446,11 +530,10 @@ export default function ReportsPage() {
                 <p className="text-sm text-muted-foreground p-4 text-center">{t("reports.noData")}</p>
               ) : (
                 <>
-                  {/* Desktop table */}
                   <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-border bg-muted/40">
+                        <tr>
                           <Th>{t("reports.date")}</Th>
                           <Th>{t("reports.source")}</Th>
                           <Th>{t("reports.plate")}</Th>
@@ -458,6 +541,7 @@ export default function ReportsPage() {
                           <Th>{t("reports.worker")}</Th>
                           <Th>{t("reports.payment")}</Th>
                           <Th right>{t("reports.gross")}</Th>
+                          <Th right>{t("jobs.cardFee")}</Th>
                           <Th right>{t("reports.workshopShareCol")}</Th>
                           <Th right>{t("reports.workerShareCol")}</Th>
                           <Th>{t("reports.attachmentsCol")}</Th>
@@ -465,7 +549,7 @@ export default function ReportsPage() {
                       </thead>
                       <tbody>
                         {data.jobs.map((job) => (
-                          <tr key={job.id} className="border-b border-border hover:bg-muted/20">
+                          <tr key={job.id} className="hover:bg-muted/20">
                             <Td>{fmtDate(job.occurredAt)}</Td>
                             <Td>{job.source}</Td>
                             <Td>{job.plateNumber ?? "—"}</Td>
@@ -477,20 +561,26 @@ export default function ReportsPage() {
                               </Badge>
                             </Td>
                             <Td right>{fmt(job.grossAmount, currency)}</Td>
-                            <Td right>{fmt(job.workshopShare, currency)}</Td>
-                            <Td right>{fmt(job.workerShare, currency)}</Td>
-                            <Td>
-                              <AttachmentLinks attachments={job.attachments} />
+                            <Td right>
+                              {job.cardFeeAmount > 0
+                                ? <span className="text-destructive">{fmt(job.cardFeeAmount, currency)}</span>
+                                : <span className="text-muted-foreground/40">—</span>}
                             </Td>
+                            <Td right>{fmt(job.workshopShare, currency)}</Td>
+                            <Td right>
+                              <span className="text-emerald-600 dark:text-emerald-500">{fmt(job.workerShare, currency)}</span>
+                            </Td>
+                            <Td><AttachmentLinks attachments={job.attachments} /></Td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot>
-                        <tr className="border-t-2 border-border font-semibold bg-muted/30">
+                        <tr className="font-semibold bg-muted/30">
                           <td colSpan={6} className="px-3 py-2 text-sm">{t("reports.total")}</td>
-                          <td className="px-3 py-2 text-sm text-right">{fmt(s!.totalRevenue, currency)}</td>
-                          <td className="px-3 py-2 text-sm text-right">{fmt(s!.totalWorkshopShare, currency)}</td>
-                          <td className="px-3 py-2 text-sm text-right">{fmt(s!.totalWorkerShare, currency)}</td>
+                          <td className="px-3 py-2 text-sm text-right font-mono">{fmt(s.totalRevenue, currency)}</td>
+                          <td className="px-3 py-2 text-sm text-right font-mono text-destructive">{s.totalVat > 0 ? fmt(s.totalVat, currency) : "—"}</td>
+                          <td className="px-3 py-2 text-sm text-right font-mono">{fmt(s.totalWorkshopShare, currency)}</td>
+                          <td className="px-3 py-2 text-sm text-right font-mono text-emerald-600 dark:text-emerald-500">{fmt(s.totalWorkerShare, currency)}</td>
                           <td />
                         </tr>
                       </tfoot>
@@ -504,30 +594,25 @@ export default function ReportsPage() {
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <p className="font-medium text-sm">{job.source}</p>
-                            <p className="text-xs text-muted-foreground">{fmtDate(job.occurredAt)}</p>
+                            {job.plateNumber && (
+                              <p className="text-xs font-mono text-blue-600 dark:text-blue-400">{job.plateNumber}{job.carModel ? ` · ${job.carModel}` : ""}</p>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-0.5">{job.workerName ?? "—"} · {fmtDate(job.occurredAt)}</p>
                           </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-sm">{fmt(job.grossAmount, currency)}</p>
-                            <Badge variant={job.paymentMethod === "cash" ? "default" : "secondary"} className="text-xs">
+                          <div className="text-end shrink-0">
+                            <div className="font-mono font-semibold text-sm">{fmt(job.grossAmount, currency)}</div>
+                            <Badge variant={job.paymentMethod === "cash" ? "default" : "secondary"} className="text-xs mt-0.5">
                               {t(`jobs.${job.paymentMethod}` as any) || job.paymentMethod}
                             </Badge>
                           </div>
                         </div>
-                        {(job.plateNumber || job.carModel) && (
-                          <p className="text-xs text-muted-foreground">{[job.plateNumber, job.carModel].filter(Boolean).join(" · ")}</p>
-                        )}
-                        {job.workerName && (
-                          <p className="text-xs">{t("reports.worker")}: <span className="font-medium">{job.workerName}</span></p>
-                        )}
-                        <div className="flex gap-3 text-xs text-muted-foreground">
-                          <span>{t("reports.workshopShareCol")}: <span className="font-medium text-foreground">{fmt(job.workshopShare, currency)}</span></span>
-                          <span>{t("reports.workerShareCol")}: <span className="font-medium text-foreground">{fmt(job.workerShare, currency)}</span></span>
+                        <div className="flex gap-4 text-xs">
+                          <span className="text-muted-foreground">{t("reports.workerShareCol")}: <span className="font-mono text-emerald-600 dark:text-emerald-500">{fmt(job.workerShare, currency)}</span></span>
+                          {job.cardFeeAmount > 0 && (
+                            <span className="text-muted-foreground">{t("jobs.cardFee")}: <span className="font-mono text-destructive">{fmt(job.cardFeeAmount, currency)}</span></span>
+                          )}
                         </div>
-                        {job.attachments.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border">
-                            <AttachmentLinks attachments={job.attachments} />
-                          </div>
-                        )}
+                        {job.attachments.length > 0 && <AttachmentLinks attachments={job.attachments} />}
                       </div>
                     ))}
                   </div>
@@ -535,263 +620,140 @@ export default function ReportsPage() {
               )}
             </ReportSection>
 
-            {/* ── Worker Breakdown ── */}
-            {data.workers.length > 0 && (
-              <div className="print-break">
-                <ReportSection title={t("reports.workersSection")} icon={<Users className="h-4 w-4" />}>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border bg-muted/40">
-                          <Th>{t("reports.worker")}</Th>
-                          <Th right>{t("reports.earned")}</Th>
-                          <Th right>{t("reports.cashCollected")}</Th>
-                          <Th right>{t("reports.reimbursements")}</Th>
-                          <Th right>{t("reports.adjReimbursements")}</Th>
-                          <Th right>{t("reports.adjDeductions")}</Th>
-                          <Th right>{t("reports.netBalance")}</Th>
-                          <Th right>{t("reports.paidOut")}</Th>
-                          <Th right>{t("reports.remaining")}</Th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.workers.map((w) => (
-                          <tr key={w.id} className="border-b border-border hover:bg-muted/20">
-                            <Td className="font-medium">{w.name}</Td>
-                            <Td right>{fmt(w.earned, currency)}</Td>
-                            <Td right className="text-rose-600">−{fmt(w.cashCollected, currency)}</Td>
-                            <Td right className="text-blue-600">+{fmt(w.reimbursements, currency)}</Td>
-                            <Td right className={w.adjReimbursements > 0 ? "text-blue-600" : "text-muted-foreground"}>
-                              {w.adjReimbursements > 0 ? `+${fmt(w.adjReimbursements, currency)}` : "—"}
-                            </Td>
-                            <Td right className={w.adjDeductions > 0 ? "text-rose-600" : "text-muted-foreground"}>
-                              {w.adjDeductions > 0 ? `−${fmt(w.adjDeductions, currency)}` : "—"}
-                            </Td>
-                            <Td right>{fmt(w.netBalance, currency)}</Td>
-                            <Td right className="text-violet-600">−{fmt(w.totalPaid, currency)}</Td>
-                            <Td right className={w.remaining > 0 ? "text-emerald-600 font-semibold" : w.remaining < 0 ? "text-rose-600 font-semibold" : ""}>
-                              {w.remaining >= 0 ? fmt(w.remaining, currency) : `−${fmt(w.remaining, currency)}`}
-                            </Td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </ReportSection>
-              </div>
-            )}
-
-            {/* ── Expenses ── */}
+            {/* ── Expenses Table ── */}
             {data.expenses.length > 0 && (
               <ReportSection title={t("reports.expensesSection")} icon={<ReceiptText className="h-4 w-4" />}>
-                <div className="hidden sm:block overflow-x-auto">
+                <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-border bg-muted/40">
+                      <tr>
                         <Th>{t("reports.date")}</Th>
-                        <Th>{t("reports.description")}</Th>
-                        <Th>{t("reports.category")}</Th>
-                        <Th>{t("reports.paidBy")}</Th>
-                        <Th right>{t("reports.amount")}</Th>
+                        <Th>{t("jobs.expenseDescription")}</Th>
+                        <Th>{t("jobs.category")}</Th>
+                        <Th>{t("reports.payment")}</Th>
+                        <Th>{t("jobs.paidBy")}</Th>
+                        <Th right>{t("reports.total")}</Th>
                       </tr>
                     </thead>
                     <tbody>
                       {data.expenses.map((e) => (
-                        <tr key={e.id} className="border-b border-border hover:bg-muted/20">
+                        <tr key={e.id} className="hover:bg-muted/20">
                           <Td>{fmtDate(e.occurredAt)}</Td>
                           <Td>{e.description}</Td>
                           <Td>{e.category ?? "—"}</Td>
-                          <Td>{e.workerName ?? (e.paidWith === "cash" ? t("expenses.workshopCash") : t("expenses.workshopCard"))}</Td>
-                          <Td right className="text-rose-600">{fmt(e.amount, currency)}</Td>
+                          <Td>
+                            <Badge variant={e.paidWith === "cash" ? "default" : "secondary"} className="text-xs">
+                              {t(`jobs.${e.paidWith}` as any) || e.paidWith}
+                            </Badge>
+                          </Td>
+                          <Td>{e.workerName ?? t("jobs.paidByWorkshop")}</Td>
+                          <Td right><span className="text-destructive">{fmt(e.amount, currency)}</span></Td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="border-t-2 border-border font-semibold bg-muted/30">
-                        <td colSpan={4} className="px-3 py-2 text-sm">{t("reports.total")}</td>
-                        <td className="px-3 py-2 text-sm text-right text-rose-600">{fmt(s!.totalWorkshopExpenses + s!.totalWorkerReimbursements, currency)}</td>
+                      <tr className="font-semibold bg-muted/30">
+                        <td colSpan={5} className="px-3 py-2 text-sm">{t("reports.total")}</td>
+                        <td className="px-3 py-2 text-sm text-right font-mono text-destructive">
+                          {fmt(data.expenses.reduce((s, e) => s + e.amount, 0), currency)}
+                        </td>
                       </tr>
                     </tfoot>
                   </table>
                 </div>
-                <div className="sm:hidden space-y-2 p-3">
-                  {data.expenses.map((e) => (
-                    <div key={e.id} className="flex items-center justify-between rounded-md border border-border p-2.5">
-                      <div>
-                        <p className="text-sm font-medium">{e.description}</p>
-                        <p className="text-xs text-muted-foreground">{fmtDate(e.occurredAt)} · {e.workerName ?? (e.paidWith === "cash" ? t("expenses.workshopCash") : t("expenses.workshopCard"))}</p>
-                      </div>
-                      <p className="text-sm font-semibold text-rose-600">{fmt(e.amount, currency)}</p>
-                    </div>
-                  ))}
-                </div>
               </ReportSection>
             )}
 
-            {/* ── Parts ── */}
+            {/* ── Parts Table ── */}
             {data.parts.length > 0 && (
               <ReportSection title={t("reports.partsSection")} icon={<Wrench className="h-4 w-4" />}>
-                <div className="hidden sm:block overflow-x-auto">
+                <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-border bg-muted/40">
+                      <tr>
                         <Th>{t("reports.date")}</Th>
-                        <Th>{t("reports.name")}</Th>
-                        <Th>{t("reports.supplier")}</Th>
+                        <Th>{t("parts.description")}</Th>
+                        <Th>{t("parts.supplier")}</Th>
+                        <Th>{t("reports.payment")}</Th>
                         <Th right>{t("reports.qty")}</Th>
                         <Th right>{t("reports.unitPrice")}</Th>
                         <Th right>{t("reports.total")}</Th>
-                        <Th>{t("reports.paidWith")}</Th>
                       </tr>
                     </thead>
                     <tbody>
                       {data.parts.map((p) => (
-                        <tr key={p.id} className="border-b border-border hover:bg-muted/20">
+                        <tr key={p.id} className="hover:bg-muted/20">
                           <Td>{fmtDate(p.occurredAt)}</Td>
                           <Td>{p.name}</Td>
                           <Td>{p.supplier ?? "—"}</Td>
+                          <Td>
+                            <Badge variant={p.paidWith === "cash" ? "default" : "secondary"} className="text-xs">
+                              {t(`jobs.${p.paidWith}` as any) || p.paidWith}
+                            </Badge>
+                          </Td>
                           <Td right>{p.quantity}</Td>
                           <Td right>{fmt(p.amount, currency)}</Td>
-                          <Td right className="text-rose-600">{fmt(p.total, currency)}</Td>
-                          <Td>
-                            <Badge variant="outline" className="text-xs">{p.paidWith}</Badge>
-                          </Td>
+                          <Td right><span className="text-destructive">{fmt(p.total, currency)}</span></Td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="border-t-2 border-border font-semibold bg-muted/30">
-                        <td colSpan={5} className="px-3 py-2 text-sm">{t("reports.total")}</td>
-                        <td className="px-3 py-2 text-sm text-right text-rose-600">{fmt(s!.totalParts, currency)}</td>
-                        <td />
+                      <tr className="font-semibold bg-muted/30">
+                        <td colSpan={6} className="px-3 py-2 text-sm">{t("reports.total")}</td>
+                        <td className="px-3 py-2 text-sm text-right font-mono text-destructive">
+                          {fmt(data.parts.reduce((s, p) => s + p.total, 0), currency)}
+                        </td>
                       </tr>
                     </tfoot>
                   </table>
                 </div>
-                <div className="sm:hidden space-y-2 p-3">
-                  {data.parts.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between rounded-md border border-border p-2.5">
-                      <div>
-                        <p className="text-sm font-medium">{p.name}</p>
-                        <p className="text-xs text-muted-foreground">{fmtDate(p.occurredAt)} · qty {p.quantity}</p>
-                      </div>
-                      <p className="text-sm font-semibold text-rose-600">{fmt(p.total, currency)}</p>
-                    </div>
-                  ))}
-                </div>
               </ReportSection>
             )}
 
-            {/* Print footer */}
-            <div className="hidden print:block mt-8 pt-4 border-t border-border text-xs text-muted-foreground">
-              <p>{t("app.name")} · {t("reports.generatedAt")}: {new Date(data.generatedAt).toLocaleString()}</p>
-            </div>
+            {/* ── Worker Breakdown ── */}
+            {data.workers.length > 0 && (
+              <ReportSection title={t("reports.workersSection")} icon={<Users className="h-4 w-4" />}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr>
+                        <Th>{t("workers.name")}</Th>
+                        <Th right>{t("workerDetail.stats.totalEarned")}</Th>
+                        <Th right>{t("workerDetail.stats.cashCollected")}</Th>
+                        <Th right>{t("workerDetail.stats.reimbursements")}</Th>
+                        <Th right>{t("reports.paidOut")}</Th>
+                        <Th right>{t("reports.netBalance")}</Th>
+                        <Th right>{t("workers.remainingToPay")}</Th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.workers.map((w) => (
+                        <tr key={w.id} className="hover:bg-muted/20">
+                          <Td><span className="font-medium">{w.name}</span></Td>
+                          <Td right>{fmt(w.earned, currency)}</Td>
+                          <Td right>{fmt(w.cashCollected, currency)}</Td>
+                          <Td right>{w.reimbursements > 0 ? fmt(w.reimbursements, currency) : "—"}</Td>
+                          <Td right>{w.totalPaid > 0 ? fmt(w.totalPaid, currency) : "—"}</Td>
+                          <Td right>
+                            <span className={w.netBalance >= 0 ? "text-emerald-600 dark:text-emerald-500" : "text-destructive"}>
+                              {fmt(w.netBalance, currency)}
+                            </span>
+                          </Td>
+                          <Td right>
+                            <span className={`font-semibold ${w.remaining >= 0 ? "text-emerald-600 dark:text-emerald-500" : "text-destructive"}`}>
+                              {fmt(w.remaining, currency)}
+                            </span>
+                          </Td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </ReportSection>
+            )}
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-// ─── Sub-components ───────────────────────────────────────────────────────
-function SummaryCard({ icon, label, value, color, highlighted, formula }: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  color: string;
-  highlighted?: boolean;
-  formula?: string;
-}) {
-  return (
-    <div className={`rounded-xl border border-border p-3 flex flex-col gap-1 ${highlighted ? "bg-primary/5 border-primary/30" : "bg-card"}`}>
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        {icon}
-        <span className="truncate">{label}</span>
-      </div>
-      <p className={`text-base font-bold tabular-nums ${highlighted ? "text-primary" : ""}`}>{value}</p>
-      {formula && <p className="text-[10px] text-muted-foreground leading-tight">{formula}</p>}
-    </div>
-  );
-}
-
-function ReportSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border border-border overflow-hidden mb-5">
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-muted/40 border-b border-border">
-        {icon}
-        <h2 className="text-sm font-semibold">{title}</h2>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function Th({ children, right, className }: { children?: React.ReactNode; right?: boolean; className?: string }) {
-  return (
-    <th className={`px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap ${right ? "text-right" : "text-left"} ${className ?? ""}`}>
-      {children}
-    </th>
-  );
-}
-
-function Td({ children, right, className }: { children?: React.ReactNode; right?: boolean; className?: string }) {
-  return (
-    <td className={`px-3 py-2 text-sm whitespace-nowrap ${right ? "text-right" : ""} ${className ?? ""}`}>
-      {children}
-    </td>
-  );
-}
-
-function AnalysisRow({ label, value, currency, deduct, bold, highlight, sub }: {
-  label: string;
-  value: number;
-  currency: string;
-  deduct?: boolean;
-  bold?: boolean;
-  highlight?: "emerald" | "blue" | "rose";
-  sub?: boolean;
-}) {
-  const absVal = Math.abs(value);
-  const formatted = `${value < 0 ? "−" : ""}${new Intl.NumberFormat("en-US", { style: "currency", currency, minimumFractionDigits: 2 }).format(absVal)}`;
-  const colorClass = highlight === "emerald"
-    ? "text-emerald-700 dark:text-emerald-400"
-    : highlight === "blue"
-    ? "text-blue-700 dark:text-blue-400"
-    : highlight === "rose"
-    ? "text-rose-600 dark:text-rose-400"
-    : deduct
-    ? "text-rose-600 dark:text-rose-400"
-    : sub
-    ? "text-amber-600 dark:text-amber-400"
-    : "text-foreground";
-  return (
-    <div className={`flex items-center justify-between gap-2 py-0.5 ${sub ? "ms-3 text-xs" : ""}`}>
-      <span className={`${bold ? "font-semibold" : "text-muted-foreground"} truncate`}>{label}</span>
-      <span className={`tabular-nums font-mono ${bold ? "font-bold" : ""} ${colorClass} shrink-0`}>{formatted}</span>
-    </div>
-  );
-}
-
-function AttachmentLinks({ attachments }: { attachments: ReportAttachment[] }) {
-  if (attachments.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
-
-  return (
-    <div className="flex flex-wrap gap-1">
-      {attachments.map((a) => (
-        <a
-          key={a.id}
-          href={a.downloadPath}
-          target="_blank"
-          rel="noopener noreferrer"
-          download={a.originalName}
-          title={a.originalName}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors"
-        >
-          <AttachmentIcon mimetype={a.mimetype} />
-          <span className="max-w-[100px] truncate">{a.label || a.originalName}</span>
-          <Download className="h-2.5 w-2.5 shrink-0" />
-        </a>
-      ))}
     </div>
   );
 }
