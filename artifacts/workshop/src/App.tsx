@@ -55,6 +55,21 @@ function AdminRouter() {
   );
 }
 
+function ManagerRouter() {
+  return (
+    <Layout>
+      <Switch>
+        <Route path="/">{() => <RedirectTo to="/jobs" />}</Route>
+        <Route path="/jobs" component={Jobs} />
+        <Route path="/expenses" component={Expenses} />
+        <Route path="/parts" component={Parts} />
+        <Route path="/portal">{() => <RedirectTo to="/jobs" />}</Route>
+        <Route component={NotFound} />
+      </Switch>
+    </Layout>
+  );
+}
+
 function WorkerRouter() {
   return (
     <WorkerLayout>
@@ -95,6 +110,10 @@ function AppRouter() {
 
   if (user.role === "admin") {
     return <AdminRouter />;
+  }
+
+  if (user.role === "manager") {
+    return <ManagerRouter />;
   }
 
   return <WorkerRouter />;
