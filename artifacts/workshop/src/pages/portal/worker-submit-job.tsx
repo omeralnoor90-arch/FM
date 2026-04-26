@@ -442,7 +442,13 @@ export default function WorkerSubmitJob() {
                   }`}>
                   <User size={15} /> {t("portal.onlyMe")}
                 </button>
-                <button type="button" onClick={() => field.onChange("shared")}
+                <button type="button" onClick={() => {
+                  field.onChange("shared");
+                  const me = allWorkers.find((w) => w.id === user?.workerId);
+                  if (me && !shareFields.some((f) => f.workerId === me.id)) {
+                    appendShare({ workerId: me.id, workerName: me.name, amount: 0 });
+                  }
+                }}
                   className={`flex items-center justify-center gap-2 py-2.5 rounded-md border text-sm font-medium transition-colors ${
                     field.value === "shared"
                       ? "bg-violet-600 border-violet-600 text-white"
