@@ -1592,11 +1592,12 @@ export default function Jobs() {
         ) : jobs && jobs.length > 0 ? (
           <div className="divide-y divide-border">
             {/* Desktop header */}
-            <div className="hidden md:grid grid-cols-[120px_1fr_140px_105px_105px_115px_96px] gap-x-3 px-4 py-3 bg-muted/30 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            <div className="hidden md:grid grid-cols-[120px_1fr_140px_105px_90px_105px_115px_96px] gap-x-3 px-4 py-3 bg-muted/30 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               <div>{t("jobs.date")}</div>
               <div>{t("jobs.customer")}</div>
               <div>{t("jobs.worker")}</div>
               <div className="text-end">{t("jobs.amount")}</div>
+              <div className="text-end">{t("jobs.cardFee")}</div>
               <div className="text-end">{t("jobs.netAfterFee")}</div>
               <div className="text-end">{t("jobs.workerShare")}</div>
               <div></div>
@@ -1644,7 +1645,7 @@ export default function Jobs() {
               return (
                 <div key={job.id}>
                   {/* Desktop row */}
-                  <div className="hidden md:grid grid-cols-[120px_1fr_140px_105px_105px_115px_96px] gap-x-3 px-4 py-3 items-start text-sm hover:bg-muted/10 transition-colors">
+                  <div className="hidden md:grid grid-cols-[120px_1fr_140px_105px_90px_105px_115px_96px] gap-x-3 px-4 py-3 items-start text-sm hover:bg-muted/10 transition-colors">
                     <div className="text-muted-foreground text-xs pt-0.5 whitespace-nowrap">
                       {format(new Date(job.occurredAt), "MMM d, yyyy")}
                     </div>
@@ -1662,6 +1663,12 @@ export default function Jobs() {
                       )}
                     </div>
                     <div className="text-end font-mono text-sm">{formatCurrency(job.grossAmount, currency)}</div>
+                    <div className="text-end font-mono text-sm">
+                      {(job as any).cardFeeAmount > 0
+                        ? <span className="text-destructive">{formatCurrency((job as any).cardFeeAmount, currency)}</span>
+                        : <span className="text-muted-foreground/40">—</span>
+                      }
+                    </div>
                     <div className="text-end font-mono text-sm text-muted-foreground">{formatCurrency(job.netAmount, currency)}</div>
                     <div className="text-end font-mono text-sm text-emerald-600 dark:text-emerald-500 font-medium">{formatCurrency(job.workerShare, currency)}</div>
                     <div className="flex items-center justify-end gap-0.5">{actionBtns}</div>
