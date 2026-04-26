@@ -94,13 +94,13 @@ router.get("/reports", async (req, res) => {
   const cashJobs = jobs.filter((r) => r.job.paymentMethod === "cash");
   const cardJobs = jobs.filter((r) => r.job.paymentMethod !== "cash");
 
-  // Revenue
-  const totalRevenue = jobs.reduce((s, r) => s + Number(r.job.grossAmount), 0);
+  // Revenue (gross, used for jobs table footer)
+  const totalGross = jobs.reduce((s, r) => s + Number(r.job.grossAmount), 0);
   const cashRevenue = cashJobs.reduce((s, r) => s + Number(r.job.grossAmount), 0);
   const cardRevenue = cardJobs.reduce((s, r) => s + Number(r.job.grossAmount), 0);
   const cardNetRevenue = cardJobs.reduce((s, r) => s + Number(r.job.netAmount), 0);
 
-  // VAT / card fees
+  // VAT / card fees (period-scoped)
   const totalVat = cardJobs.reduce((s, r) => s + Number(r.job.cardFeeAmount), 0);
 
   // Worker / workshop share
@@ -140,14 +140,9 @@ router.get("/reports", async (req, res) => {
   const adjReimb = periodAdj.filter((a) => a.type === "reimbursement").reduce((s, a) => s + Number(a.amount), 0);
   const adjDeduct = periodAdj.filter((a) => a.type === "deduction").reduce((s, a) => s + Number(a.amount), 0);
 
-  // ── Period Workshop Profit — matches analytics/summary workshopProfit ───
-  //
-  // cashBalance = cashRevenue − totalWorkerShare(ALL) − cashDirectExp − cashParts
-  // cardBalance = cardNetRevenue(after VAT) − cardDirectExp − cardParts
-  // workshopProfit = cashBalance + cardBalance
+  // ── Period balances (for Cash/Card breakdown detail) ─────────────────
   const cashBalance = cashRevenue - totalWorkerShare - cashDirectExp - cashParts;
   const cardBalance = cardNetRevenue - cardDirectExp - cardParts;
-  const workshopProfit = cashBalance + cardBalance;
 
   // ── All-time Cash on Hand — identical to analytics/balances cashOnHand ─
   //
@@ -212,9 +207,18 @@ router.get("/reports", async (req, res) => {
   const allTimeCashOnHand = -sumOfWorkerRemaining - allTimeCashDirectExp - allTimeCashParts;
 
   // All-time card balance (mirrors analytics/balances cardBalance)
+  let allTimeCashRevenue = 0;
   let allTimeCardNetRevenue = 0;
+  let allTimeVat = 0;
+  let allTimeWorkerShareTotal = 0;
   for (const j of allJobs) {
-    if (j.paymentMethod !== "cash") allTimeCardNetRevenue += Number(j.netAmount);
+    allTimeWorkerShareTotal += Number(j.workerShare);
+    if (j.paymentMethod !== "cash") {
+      allTimeCardNetRevenue += Number(j.netAmount);
+      allTimeVat += Number(j.cardFeeAmount);
+    } else {
+      allTimeCashRevenue += Number(j.grossAmount);
+    }
   }
   const allTimeCardDirectExp = allExpenses
     .filter((e) => e.workerId === null && e.paidWith !== "cash")
@@ -223,6 +227,14 @@ router.get("/reports", async (req, res) => {
     .filter((p) => p.paidWith !== "cash")
     .reduce((s, p) => s + Number(p.amount) * Number(p.quantity), 0);
   const allTimeCardBalance = allTimeCardNetRevenue - allTimeCardDirectExp - allTimeCardParts;
+
+  // All-time cash balance (simple formula, for reference)
+  const allTimeCashBalance = allTimeCashRevenue - allTimeWorkerShareTotal - allTimeCashDirectExp - allTimeCashParts;
+
+  // ── Workshop Profit = Cash Balance (Analysis) + Card Balance (Analysis) ─
+  // Matches exactly the two figures shown in the Cash Analysis and Card Analysis sections.
+  // totalRevenue uses the same formula so that it is always consistent.
+  const workshopProfit = allTimeCashOnHand + allTimeCardBalance;
 
   // ── 7. Per-worker breakdown (all-time for accurate remaining balance) ──
   const workerRows = await db.select().from(workersTable).where(eq(workersTable.active, true));
@@ -295,17 +307,24 @@ router.get("/reports", async (req, res) => {
     .filter((w) => w.earned > 0 || w.remaining !== 0);
 
   // ── 8. Response ────────────────────────────────────────────────────────
+  // totalRevenue = workshopProfit = allTimeCashOnHand + allTimeCardBalance
+  // so both the "Monthly Profit" and "Total Revenue" cards always match
+  // what is shown in the Cash Analysis + Card Analysis sections.
+  const totalRevenue = allTimeCashOnHand + allTimeCardBalance;
+
   res.json({
     generatedAt: new Date().toISOString(),
     period: { from: from?.toISOString() ?? null, to: to?.toISOString() ?? null },
     summary: {
       jobCount: jobs.length,
-      // Revenue
-      totalRevenue,
+      // Gross revenue fields (for jobs table footer)
+      totalGross,
       cashRevenue,
       cardRevenue,
       cardNetRevenue,
-      // VAT
+      // Net revenue = allTimeCashOnHand + allTimeCardBalance (matches dashboard)
+      totalRevenue,
+      // VAT (period-scoped for period view)
       totalVat,
       // Shares
       totalWorkerShare,
@@ -327,9 +346,19 @@ router.get("/reports", async (req, res) => {
       cashBalance,
       cardBalance,
       workshopProfit,
-      // All-time balances — identical to analytics/balances (matches dashboard cards)
+      // All-time balances
       allTimeCashOnHand,
+      allTimeCashBalance,
       allTimeCardBalance,
+      // All-time card breakdown fields (for Card Analysis section)
+      allTimeVat,
+      allTimeCardNetRevenue,
+      allTimeCardDirectExp,
+      allTimeCardParts,
+      // All-time cash breakdown fields (for Cash Analysis section)
+      allTimeCashDirectExp,
+      allTimeCashParts,
+      sumOfWorkerRemaining,
     },
     jobs: jobs.map((r) => ({
       id: r.job.id,
