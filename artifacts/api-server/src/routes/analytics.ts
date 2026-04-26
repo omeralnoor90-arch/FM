@@ -10,6 +10,7 @@ import {
   jobWorkerSharesTable,
   workerAdjustmentsTable,
   workerDebtsTable,
+  workerTransfersTable,
 } from "@workspace/db";
 import { gte, desc, eq, and } from "drizzle-orm";
 import {
@@ -180,6 +181,12 @@ router.get("/analytics/by-worker", async (req, res) => {
   // Load all worker adjustments (always unfiltered — reflects true all-time balance)
   const allAdjustments = await db.select().from(workerAdjustmentsTable);
 
+  // Load all worker-to-worker transfers (always unfiltered)
+  const allTransfers = await db.select().from(workerTransfersTable);
+
+  // Load all worker debts (always unfiltered — only uncollected ones reduce net)
+  const allDebts = await db.select().from(workerDebtsTable);
+
   // All approved job IDs for filtering
   const approvedJobIds = new Set(jobs.map((j) => j.id));
 
@@ -224,14 +231,26 @@ router.get("/analytics/by-worker", async (req, res) => {
 
     const reimbursements = jobLineReimb + workerExpenseReimb + adjReimb;
 
-    // Payments already made to this worker (always use full history)
+    // Transfers: sent transfers relieve worker of debt (+), received transfers add to debt (-)
+    const transferNet = allTransfers.reduce((s, t) => {
+      if (t.fromWorkerId === w.id) return s + Number(t.amount);
+      if (t.toWorkerId === w.id) return s - Number(t.amount);
+      return s;
+    }, 0);
+
+    // Uncollected debts reduce what the shop owes the worker
+    const workerDebts = allDebts
+      .filter((d) => d.workerId === w.id && !d.collected)
+      .reduce((s, d) => s + Number(d.amount), 0);
+
+    // Payments: use abs() to match ledger endpoint exactly (negative payments still reduce remaining)
     const paymentsMade = allPayments
       .filter((p) => p.workerId === w.id)
-      .reduce((s, p) => s + Number(p.amount), 0);
+      .reduce((s, p) => s + Math.abs(Number(p.amount)), 0);
 
     // Net: positive = shop owes worker, negative = worker owes shop
-    // Formula mirrors the ledger endpoint exactly: earned + reimbursements - cashCollected - deductions - payments
-    const netOwed = workerEarned + reimbursements - cashCollected - adjDeduct;
+    // Formula mirrors the ledger endpoint exactly
+    const netOwed = workerEarned + reimbursements - cashCollected - adjDeduct - workerDebts + transferNet;
     const remaining = netOwed - paymentsMade;
 
     return {
@@ -324,6 +343,8 @@ router.get("/analytics/balances", async (_req, res) => {
   const allSharedShares = await db.select().from(jobWorkerSharesTable);
   const allExpenseLines = await db.select().from(jobExpenseLinesTable);
   const allAdjustments = await db.select().from(workerAdjustmentsTable);
+  const allTransfers = await db.select().from(workerTransfersTable);
+  const allDebts = await db.select().from(workerDebtsTable);
 
   // ── Card balance ──────────────────────────────────────────────────────
   let cardNetTotal = 0;
@@ -382,23 +403,36 @@ router.get("/analytics/balances", async (_req, res) => {
       .reduce((s, a) => s + Number(a.amount), 0);
 
     const reimbursements = jobLineReimb + workerExpenseReimb + adjReimb;
-    const netOwed = workerEarned + reimbursements - cashCollected - adjDeduct;
+
+    // Transfers: sent (+) relieve worker of debt, received (-) add to what worker holds
+    const transferNet = allTransfers.reduce((s, t) => {
+      if (t.fromWorkerId === w.id) return s + Number(t.amount);
+      if (t.toWorkerId === w.id) return s - Number(t.amount);
+      return s;
+    }, 0);
+
+    // Uncollected debts reduce net
+    const workerDebts = allDebts
+      .filter((d) => d.workerId === w.id && !d.collected)
+      .reduce((s, d) => s + Number(d.amount), 0);
+
+    const netOwed = workerEarned + reimbursements - cashCollected - adjDeduct - workerDebts + transferNet;
 
     const paymentsMade = allPayments
       .filter((p) => p.workerId === w.id)
-      .reduce((s, p) => s + Number(p.amount), 0);
+      .reduce((s, p) => s + Math.abs(Number(p.amount)), 0);
 
     const remaining = netOwed - paymentsMade;
     sumOfWorkerRemaining += remaining;
   }
 
-  // Direct expenses paid by workshop (not linked to any worker)
+  // Cash-only direct expenses and parts (for cash balance — card items stay on card balance)
   const directExpenses = expenses
-    .filter((e) => e.workerId === null)
+    .filter((e) => e.workerId === null && e.paidWith === "cash")
     .reduce((s, e) => s + Number(e.amount), 0);
 
-  // All parts costs
   const allParts = parts
+    .filter((p) => p.paidWith === "cash")
     .reduce((s, p) => s + Number(p.amount) * Number(p.quantity), 0);
 
   const cashOnHand = -sumOfWorkerRemaining - directExpenses - allParts;

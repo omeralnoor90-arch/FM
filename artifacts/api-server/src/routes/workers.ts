@@ -86,12 +86,30 @@ router.get("/workers/:id", async (req, res) => {
     .from(expensesTable)
     .where(eq(expensesTable.workerId, id));
 
+  // Worker-to-worker transfers (always unfiltered for all-time balance)
+  const transfers = await db.select().from(workerTransfersTable)
+    .where(or(eq(workerTransfersTable.fromWorkerId, id), eq(workerTransfersTable.toWorkerId, id)));
+  const transferNet = transfers.reduce((s, t) => {
+    if (t.fromWorkerId === id) return s + Number(t.amount);
+    if (t.toWorkerId === id) return s - Number(t.amount);
+    return s;
+  }, 0);
+
+  // Uncollected worker debts reduce the net balance
+  const debts = await db.select().from(workerDebtsTable)
+    .where(and(eq(workerDebtsTable.workerId, id), eq(workerDebtsTable.collected, false)));
+  const totalDebts = debts.reduce((s, d) => s + Number(d.amount), 0);
+
+  // Worker payments (use abs to match ledger endpoint)
+  const payments = await db.select().from(workerPaymentsTable).where(eq(workerPaymentsTable.workerId, id));
+  const totalPayments = payments.reduce((s, p) => s + Math.abs(Number(p.amount)), 0);
+
   const totalEarned = Number(singleEarnings?.total ?? 0) + Number(sharedEarnings?.total ?? 0);
   const totalCashCollected = Number(cashCollected?.total ?? 0);
   const totalReimbursements = Number(reimbursements?.total ?? 0);
   const totalExpenses = Number(exp?.total ?? 0);
   // Net: workshop owes worker (positive = owed, negative = worker owes workshop)
-  const netBalance = totalEarned + totalReimbursements - totalCashCollected - totalExpenses;
+  const netBalance = totalEarned + totalReimbursements - totalCashCollected - totalExpenses - totalDebts + transferNet;
 
   res.json({
     ...serializeWorker(row),

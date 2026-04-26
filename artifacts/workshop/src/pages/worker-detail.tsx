@@ -437,7 +437,8 @@ export default function WorkerDetail() {
     return <div className="p-8 text-center text-muted-foreground">{t("common.noData")}</div>;
   }
 
-  const net = ledger?.netBalance ?? 0;
+  // Compute net from ALL visible entries (including payments) so "Paid Out" reduces the displayed net
+  const net = (ledger?.entries ?? []).reduce((s, e) => s + e.amount * (TYPE_SIGN[e.type] ?? 1), 0);
   const remaining = ledger?.remainingBalance ?? 0;
   const isOwed = net >= 0;
   const hasRemaining = remaining > 0.005;
