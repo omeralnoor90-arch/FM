@@ -14,7 +14,6 @@ import {
   FileBarChart,
   Languages,
   Menu,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -32,20 +31,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { t, i18n } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const navigation = [
-    { name: t("nav.dashboard"), href: "/", icon: LayoutDashboard },
-    { name: t("nav.jobs"), href: "/jobs", icon: Briefcase },
-    { name: t("nav.workers"), href: "/workers", icon: Users },
-    { name: t("nav.expenses"), href: "/expenses", icon: CreditCard },
-    { name: t("nav.parts"), href: "/parts", icon: Wrench },
-    { name: t("nav.analytics"), href: "/analytics", icon: BarChart3 },
-    { name: t("nav.reports"), href: "/reports", icon: FileBarChart },
+  const isManager = user?.role === "manager";
+
+  const allNavItems = [
+    { name: t("nav.dashboard"), href: "/", icon: LayoutDashboard, adminOnly: true },
+    { name: t("nav.jobs"), href: "/jobs", icon: Briefcase, adminOnly: false },
+    { name: t("nav.workers"), href: "/workers", icon: Users, adminOnly: true },
+    { name: t("nav.expenses"), href: "/expenses", icon: CreditCard, adminOnly: false },
+    { name: t("nav.parts"), href: "/parts", icon: Wrench, adminOnly: false },
+    { name: t("nav.analytics"), href: "/analytics", icon: BarChart3, adminOnly: true },
+    { name: t("nav.reports"), href: "/reports", icon: FileBarChart, adminOnly: true },
   ];
 
-  const bottomNav = [
-    { name: t("nav.credentials"), href: "/credentials", icon: KeyRound },
-    { name: t("nav.settings"), href: "/settings", icon: SettingsIcon },
+  const allBottomItems = [
+    { name: t("nav.credentials"), href: "/credentials", icon: KeyRound, adminOnly: true },
+    { name: t("nav.settings"), href: "/settings", icon: SettingsIcon, adminOnly: true },
   ];
+
+  const navigation = isManager ? allNavItems.filter(i => !i.adminOnly) : allNavItems;
+  const bottomNav = isManager ? [] : allBottomItems;
 
   function toggleLang() {
     const next: Lang = i18n.language === "ar" ? "en" : "ar";
@@ -94,7 +98,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {bottomNav.map((item) => (
             <NavLink key={item.href} {...item} />
           ))}
-          <div className="border-t border-sidebar-border pt-2 mt-2 space-y-1">
+          <div className={cn("pt-2 space-y-1", bottomNav.length > 0 && "border-t border-sidebar-border mt-2")}>
             <div className="px-3 py-1.5 text-xs text-sidebar-foreground/50">{user?.username}</div>
             <button
               onClick={toggleLang}
@@ -138,7 +142,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {bottomNav.map((item) => (
               <NavLink key={item.href} {...item} onClick={() => setMobileOpen(false)} />
             ))}
-            <div className="border-t border-sidebar-border pt-2 mt-2 space-y-1">
+            <div className={cn("pt-2 space-y-1", bottomNav.length > 0 && "border-t border-sidebar-border mt-2")}>
               <div className="px-3 py-1.5 text-xs text-sidebar-foreground/50">{user?.username}</div>
               <button
                 onClick={() => { toggleLang(); setMobileOpen(false); }}
