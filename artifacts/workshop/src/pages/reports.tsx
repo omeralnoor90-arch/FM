@@ -87,12 +87,14 @@ interface ReportWorker {
 
 interface ReportSummary {
   jobCount: number;
-  // Revenue
-  totalRevenue: number;
+  // Gross revenue (used in jobs table footer)
+  totalGross: number;
   cashRevenue: number;
   cardRevenue: number;
   cardNetRevenue: number;
-  // VAT
+  // Net revenue = allTimeCashOnHand + allTimeCardBalance
+  totalRevenue: number;
+  // VAT (period-scoped)
   totalVat: number;
   // Shares
   totalWorkerShare: number;
@@ -114,9 +116,19 @@ interface ReportSummary {
   cashBalance: number;
   cardBalance: number;
   workshopProfit: number;
-  // All-time balances — identical to analytics/balances (matches dashboard cards)
+  // All-time balances
   allTimeCashOnHand: number;
+  allTimeCashBalance: number;
   allTimeCardBalance: number;
+  // All-time card breakdown
+  allTimeVat: number;
+  allTimeCardNetRevenue: number;
+  allTimeCardDirectExp: number;
+  allTimeCardParts: number;
+  // All-time cash breakdown
+  allTimeCashDirectExp: number;
+  allTimeCashParts: number;
+  sumOfWorkerRemaining: number;
 }
 
 interface ReportData {
@@ -407,14 +419,15 @@ export default function ReportsPage() {
                 icon={<TrendingUp className="h-4 w-4 text-emerald-600" />}
                 label={t("reports.totalRevenue")}
                 value={fmt(s.totalRevenue, currency)}
-                subLabel={`${t("reports.cash")}: ${fmt(s.cashRevenue, currency)}  |  ${t("reports.card")}: ${fmt(s.cardRevenue, currency)}`}
+                subLabel={`${t("dashboard.cashOnHand")}: ${fmt(s.allTimeCashOnHand, currency)}  |  ${t("dashboard.cardBalance")}: ${fmt(s.allTimeCardBalance, currency)}`}
                 color="emerald"
               />
               <SummaryCard
-                icon={<Users className="h-4 w-4 text-amber-600" />}
-                label={t("reports.workerShare")}
-                value={fmt(s.totalWorkerShare, currency)}
-                color="amber"
+                icon={<CreditCard className="h-4 w-4 text-blue-600" />}
+                label={t("reports.cardBalancePlusVat")}
+                value={fmt(s.allTimeCardBalance + s.allTimeVat, currency)}
+                subLabel={`${t("dashboard.cardBalance")}: ${fmt(s.allTimeCardBalance, currency)}  +  ${t("reports.totalVatReport")}: ${fmt(s.allTimeVat, currency)}`}
+                color="blue"
               />
               <SummaryCard
                 icon={<Receipt className="h-4 w-4 text-orange-500" />}
@@ -472,10 +485,9 @@ export default function ReportsPage() {
                   <span className="ms-auto text-xs text-emerald-600 dark:text-emerald-400">{s.jobCount > 0 ? `${data.jobs.filter(j => j.paymentMethod === "cash").length} ${t("reports.jobs")}` : ""}</span>
                 </div>
                 <div className="p-4 space-y-1 text-sm">
-                  <AnalysisRow label={t("reports.grossRevenue")} value={s.cashRevenue} currency={currency} />
-                  <AnalysisRow label={t("reports.workerShareCol")} value={s.totalWorkerShare} currency={currency} deduct />
-                  <AnalysisRow label={t("reports.directExpenses")} value={s.cashDirectExp} currency={currency} deduct />
-                  <AnalysisRow label={t("reports.parts")} value={s.cashParts} currency={currency} deduct />
+                  <AnalysisRow label={t("reports.workerBalancesLbl")} value={-s.sumOfWorkerRemaining} currency={currency} />
+                  <AnalysisRow label={t("reports.directExpenses")} value={s.allTimeCashDirectExp} currency={currency} deduct />
+                  <AnalysisRow label={t("reports.parts")} value={s.allTimeCashParts} currency={currency} deduct />
                   <div className="border-t border-emerald-200 dark:border-emerald-800 mt-2 pt-2">
                     <AnalysisRow
                       label={t("dashboard.cashOnHand")}
@@ -485,16 +497,6 @@ export default function ReportsPage() {
                       highlight={s.allTimeCashOnHand >= 0 ? "emerald" : "rose"}
                     />
                   </div>
-                  {/* Informational detail */}
-                  {(s.workerExpenseReimb > 0 || s.totalJobExpenseReimb > 0 || s.adjReimb > 0 || s.adjDeduct > 0) && (
-                    <div className="border-t border-emerald-100 dark:border-emerald-900 mt-3 pt-2 space-y-0.5">
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">{t("reports.reimbursements")}</p>
-                      {s.workerExpenseReimb > 0 && <AnalysisRow label={t("reports.workerReimb")} value={s.workerExpenseReimb} currency={currency} />}
-                      {s.totalJobExpenseReimb > 0 && <AnalysisRow label={t("reports.jobExpenseReimb")} value={s.totalJobExpenseReimb} currency={currency} />}
-                      {s.adjReimb > 0 && <AnalysisRow label={t("reports.adjReimbursements")} value={s.adjReimb} currency={currency} />}
-                      {s.adjDeduct > 0 && <AnalysisRow label={t("reports.adjDeductions")} value={s.adjDeduct} currency={currency} />}
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -506,19 +508,17 @@ export default function ReportsPage() {
                   <span className="ms-auto text-xs text-blue-600 dark:text-blue-400">{s.jobCount > 0 ? `${data.jobs.filter(j => j.paymentMethod !== "cash").length} ${t("reports.jobs")}` : ""}</span>
                 </div>
                 <div className="p-4 space-y-1 text-sm">
-                  <AnalysisRow label={t("reports.grossRevenue")} value={s.cardRevenue} currency={currency} />
-                  <AnalysisRow label={t("reports.vatCollected")} value={s.totalVat} currency={currency} sub />
-                  <AnalysisRow label={t("reports.netAfterVat")} value={s.cardNetRevenue} currency={currency} bold />
-                  <AnalysisRow label={t("reports.directExpenses")} value={s.cardDirectExp} currency={currency} deduct />
-                  <AnalysisRow label={t("reports.parts")} value={s.cardParts} currency={currency} deduct />
-                  <div className="border-t border-blue-200 dark:border-blue-800 mt-2 pt-2">
-                    <AnalysisRow
-                      label={t("dashboard.cardBalance")}
-                      value={s.allTimeCardBalance}
-                      currency={currency}
-                      bold
-                      highlight={s.allTimeCardBalance >= 0 ? "blue" : "rose"}
-                    />
+                  <AnalysisRow label={t("dashboard.cardBalance")} value={s.allTimeCardBalance} currency={currency} bold highlight={s.allTimeCardBalance >= 0 ? "blue" : "rose"} />
+                  {s.allTimeCardDirectExp > 0 && (
+                    <AnalysisRow label={t("reports.directExpenses")} value={s.allTimeCardDirectExp} currency={currency} deduct />
+                  )}
+                  {s.allTimeCardParts > 0 && (
+                    <AnalysisRow label={t("reports.parts")} value={s.allTimeCardParts} currency={currency} deduct />
+                  )}
+                  <div className="border-t border-blue-200 dark:border-blue-800 mt-2 pt-2 space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("reports.vatCollected")}</p>
+                    <AnalysisRow label={t("reports.vatCollected")} value={s.allTimeVat} currency={currency} />
+                    <AnalysisRow label={t("reports.netAfterVat")} value={s.allTimeCardNetRevenue} currency={currency} />
                   </div>
                 </div>
               </div>
@@ -577,7 +577,7 @@ export default function ReportsPage() {
                       <tfoot>
                         <tr className="font-semibold bg-muted/30">
                           <td colSpan={6} className="px-3 py-2 text-sm">{t("reports.total")}</td>
-                          <td className="px-3 py-2 text-sm text-right font-mono">{fmt(s.totalRevenue, currency)}</td>
+                          <td className="px-3 py-2 text-sm text-right font-mono">{fmt(s.totalGross, currency)}</td>
                           <td className="px-3 py-2 text-sm text-right font-mono text-destructive">{s.totalVat > 0 ? fmt(s.totalVat, currency) : "—"}</td>
                           <td className="px-3 py-2 text-sm text-right font-mono">{fmt(s.totalWorkshopShare, currency)}</td>
                           <td className="px-3 py-2 text-sm text-right font-mono text-emerald-600 dark:text-emerald-500">{fmt(s.totalWorkerShare, currency)}</td>
