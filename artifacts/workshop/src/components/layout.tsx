@@ -36,7 +36,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const allNavItems = [
     { name: t("nav.dashboard"), href: "/", icon: LayoutDashboard, adminOnly: true },
     { name: t("nav.jobs"), href: "/jobs", icon: Briefcase, adminOnly: false },
-    { name: t("nav.workers"), href: "/workers", icon: Users, adminOnly: true },
+    { name: t("nav.workers"), href: "/workers", icon: Users, adminOnly: false },
     { name: t("nav.expenses"), href: "/expenses", icon: CreditCard, adminOnly: false },
     { name: t("nav.parts"), href: "/parts", icon: Wrench, adminOnly: false },
     { name: t("nav.analytics"), href: "/analytics", icon: BarChart3, adminOnly: true },
