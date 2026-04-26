@@ -668,6 +668,8 @@ export default function Jobs() {
   const [editExpensesJob, setEditExpensesJob] = useState<Job | null>(null);
   const [previewJob, setPreviewJob] = useState<Job | null>(null);
   const [lockedWorkerIndices, setLockedWorkerIndices] = useState<Set<number>>(new Set());
+  const [workerSplitMode, setWorkerSplitMode] = useState<"percent" | "amount">("amount");
+  const [workerPcts, setWorkerPcts] = useState<number[]>([50]);
   const { toast } = useToast();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -808,8 +810,18 @@ export default function Jobs() {
   const addWorkerShare = () => {
     const current = form.getValues("workerShares") ?? [];
     const newIdx = current.length;
-    form.setValue("workerShares", [...current, { workerId: 0, amount: 0 }]);
+    const newShares = [...current, { workerId: 0, amount: 0 }];
+    form.setValue("workerShares", newShares);
     setActiveWorkerTab(String(newIdx));
+    if (workerSplitMode === "percent") {
+      const count = newShares.length;
+      const equalPct = Number((100 / count).toFixed(1));
+      const newPcts = Array(count).fill(equalPct);
+      setWorkerPcts(newPcts);
+      applyPctsToAmounts(newPcts);
+    } else {
+      setWorkerPcts((prev) => [...prev, 0]);
+    }
   };
   const removeWorkerShare = (idx: number) => {
     const current = form.getValues("workerShares") ?? [];
@@ -823,6 +835,10 @@ export default function Jobs() {
         else if (i > idx) next.add(i - 1);
       });
       return next;
+    });
+    setWorkerPcts((prev) => {
+      const newPcts = prev.filter((_, i) => i !== idx);
+      return newPcts.length > 0 ? newPcts : [50];
     });
   };
 
@@ -846,6 +862,31 @@ export default function Jobs() {
       }
       return next;
     });
+  };
+
+  const applyPctsToAmounts = (pcts: number[]) => {
+    const pool = net * (effectiveWorkerPercent / 100);
+    pcts.forEach((pct, i) => {
+      form.setValue(`workerShares.${i}.amount` as const, Number(((pool * pct) / 100).toFixed(2)), { shouldDirty: true });
+    });
+  };
+
+  const handleWorkerPctChange = (idx: number, newPct: number) => {
+    const updated = [...workerPcts];
+    updated[idx] = Math.max(0, Math.min(100, newPct));
+    setWorkerPcts(updated);
+    applyPctsToAmounts(updated);
+  };
+
+  const switchToPercentMode = () => {
+    const pool = net * (effectiveWorkerPercent / 100);
+    const count = watchWorkerShares.length || 1;
+    const newPcts = watchWorkerShares.map((ws) => {
+      if (pool <= 0) return Number((100 / count).toFixed(1));
+      return Number((((Number(ws.amount) || 0) / pool) * 100).toFixed(1));
+    });
+    setWorkerPcts(newPcts);
+    setWorkerSplitMode("percent");
   };
 
   // ── Submit ──
@@ -1213,12 +1254,34 @@ export default function Jobs() {
                                     {formatCurrency(Math.abs(sharedRemaining), currency)}
                                   </span>
                                 </div>
+                                <div className="flex items-center gap-1 pt-1 border-t border-border/50">
+                                  <span className="text-muted-foreground">{t("jobs.splitMode")}:</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setWorkerSplitMode("amount")}
+                                    className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${workerSplitMode === "amount" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                                  >
+                                    {t("jobs.splitByAmount")}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={switchToPercentMode}
+                                    className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${workerSplitMode === "percent" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                                  >
+                                    {t("jobs.splitByPercent")}
+                                  </button>
+                                  {workerSplitMode === "percent" && (
+                                    <span className={`ms-auto font-mono ${workerPcts.reduce((s, p) => s + p, 0) > 100.01 ? "text-destructive" : "text-muted-foreground"}`}>
+                                      {workerPcts.reduce((s, p) => s + p, 0).toFixed(1)}%
+                                    </span>
+                                  )}
+                                </div>
                               </div>
 
                               <div className="space-y-2">
                                 {watchWorkerShares.map((ws, idx) => {
                                   const isLocked = lockedWorkerIndices.has(idx);
-                                  const showLock = watchWorkerShares.length >= 2;
+                                  const showLock = watchWorkerShares.length >= 2 && workerSplitMode === "amount";
                                   return (
                                     <div key={idx} className="flex items-center gap-1.5">
                                       <FormField control={form.control} name={`workerShares.${idx}.workerId` as const} render={({ field }) => (
@@ -1238,28 +1301,44 @@ export default function Jobs() {
                                           <FormMessage />
                                         </FormItem>
                                       )} />
-                                      <FormField control={form.control} name={`workerShares.${idx}.amount` as const} render={({ field }) => (
-                                        <FormItem className="m-0 w-24 shrink-0">
-                                          <FormControl>
-                                            <Input
-                                              type="number"
-                                              step="0.01"
-                                              min="0"
-                                              placeholder="0.00"
-                                              className={`h-9 text-end ${isLocked ? "bg-muted/60 font-semibold" : ""}`}
-                                              value={field.value || ""}
-                                              onChange={(e) => {
-                                                const val = Number(e.target.value);
-                                                field.onChange(val);
-                                                handleWorkerAmountChange(idx, val);
-                                              }}
-                                              onBlur={field.onBlur}
-                                              name={field.name}
-                                              ref={field.ref}
-                                            />
-                                          </FormControl>
-                                        </FormItem>
-                                      )} />
+                                      {workerSplitMode === "percent" ? (
+                                        <div className="flex items-center gap-1 w-28 shrink-0">
+                                          <Input
+                                            type="number"
+                                            step="0.1"
+                                            min="0"
+                                            max="100"
+                                            placeholder="0"
+                                            className="h-9 text-end w-16"
+                                            value={workerPcts[idx] ?? 0}
+                                            onChange={(e) => handleWorkerPctChange(idx, Number(e.target.value) || 0)}
+                                          />
+                                          <span className="text-xs text-muted-foreground">%</span>
+                                        </div>
+                                      ) : (
+                                        <FormField control={form.control} name={`workerShares.${idx}.amount` as const} render={({ field }) => (
+                                          <FormItem className="m-0 w-24 shrink-0">
+                                            <FormControl>
+                                              <Input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                placeholder="0.00"
+                                                className={`h-9 text-end ${isLocked ? "bg-muted/60 font-semibold" : ""}`}
+                                                value={field.value || ""}
+                                                onChange={(e) => {
+                                                  const val = Number(e.target.value);
+                                                  field.onChange(val);
+                                                  handleWorkerAmountChange(idx, val);
+                                                }}
+                                                onBlur={field.onBlur}
+                                                name={field.name}
+                                                ref={field.ref}
+                                              />
+                                            </FormControl>
+                                          </FormItem>
+                                        )} />
+                                      )}
                                       {showLock && (
                                         <Button
                                           type="button"
