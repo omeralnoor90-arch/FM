@@ -60,7 +60,7 @@ router.post("/auth/login", async (req, res) => {
   }
 
   req.session.userId = user.id;
-  req.session.role = user.role as "admin" | "worker";
+  req.session.role = user.role as "admin" | "worker" | "manager";
   req.session.workerId = user.workerId;
   req.session.username = user.username;
 
@@ -235,6 +235,34 @@ router.put("/admin/credentials/:id/reset-password", requireAdmin, async (req, re
   }
 
   res.json({ ok: true, mustChangePassword: true });
+});
+
+router.put("/admin/credentials/:id/role", requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const { role } = req.body as { role?: string };
+
+  if (!role || !["worker", "manager"].includes(role)) {
+    res.status(400).json({ error: "role must be 'worker' or 'manager'" });
+    return;
+  }
+
+  const [target] = await db.select().from(authUsersTable).where(eq(authUsersTable.id, id));
+  if (!target) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  if (target.role === "admin") {
+    res.status(403).json({ error: "Cannot change an admin's role" });
+    return;
+  }
+
+  const [row] = await db
+    .update(authUsersTable)
+    .set({ role })
+    .where(eq(authUsersTable.id, id))
+    .returning();
+
+  res.json({ ok: true, role: row!.role });
 });
 
 router.delete("/admin/credentials/:id", requireAdmin, async (req, res) => {
