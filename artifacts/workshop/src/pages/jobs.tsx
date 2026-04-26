@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/auth-context";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -670,6 +671,8 @@ export default function Jobs() {
   const { toast } = useToast();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const isManager = user?.role === "manager";
 
   const { data: settings } = useGetSettings();
   const { data: workers } = useListWorkers();
@@ -1637,9 +1640,11 @@ export default function Jobs() {
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={() => setEditExpensesJob(job)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => handleDelete(job.id)} disabled={deleteJob.isPending}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {!isManager && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => handleDelete(job.id)} disabled={deleteJob.isPending}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </>
               );
               return (
