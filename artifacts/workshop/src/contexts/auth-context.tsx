@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 export interface AuthUser {
   id: number;
   username: string;
-  role: "admin" | "worker";
+  role: "admin" | "worker" | "manager";
   workerId: number | null;
   workerName: string | null;
   mustChangePassword: boolean;
