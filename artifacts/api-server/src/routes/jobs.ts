@@ -3,6 +3,7 @@ import { db, jobsTable, workersTable, jobExpenseLinesTable, jobWorkerSharesTable
 import { and, eq, gte, lte, desc, inArray, ne } from "drizzle-orm";
 import { CreateJobBody, ListJobsQueryParams, UpdateJobExpensesBody } from "@workspace/api-zod";
 import { ensureSettings } from "./settings";
+import { requireAdmin } from "../middleware/auth";
 
 const router: IRouter = Router();
 
@@ -437,7 +438,7 @@ router.put("/jobs/:id/expenses", async (req, res) => {
   res.json(serialize(updated!, workerName?.name ?? null, savedLines, savedShares, cashReceivedByName));
 });
 
-router.delete("/jobs/:id", async (req, res) => {
+router.delete("/jobs/:id", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
   await db.delete(jobsTable).where(eq(jobsTable.id, id));
   res.status(204).end();
