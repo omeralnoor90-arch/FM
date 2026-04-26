@@ -61,6 +61,8 @@ function ManagerRouter() {
       <Switch>
         <Route path="/">{() => <RedirectTo to="/jobs" />}</Route>
         <Route path="/jobs" component={Jobs} />
+        <Route path="/workers" component={Workers} />
+        <Route path="/workers/:id" component={WorkerDetail} />
         <Route path="/expenses" component={Expenses} />
         <Route path="/parts" component={Parts} />
         <Route path="/portal">{() => <RedirectTo to="/jobs" />}</Route>
