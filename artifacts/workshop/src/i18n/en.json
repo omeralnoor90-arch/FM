@@ -108,7 +108,7 @@
   "dashboard": {
     "title": "Dashboard",
     "subtitle": "Overview of workshop performance.",
-    "cashOnHand": "Cash Balance (incl. VAT)",
+    "cashOnHand": "Cash Balance",
     "cardBalance": "Card Balance",
     "totalVat": "Total VAT Collected",
     "monthlyProfit": "Monthly Profit",
@@ -423,7 +423,23 @@
     "save": "Save Settings",
     "saving": "Saving…",
     "saved": "Settings updated successfully",
-    "failed": "Failed to update settings"
+    "failed": "Failed to update settings",
+    "backup": {
+      "title": "Backup & Restore",
+      "description": "Export all data to a JSON file, or restore from a previously exported backup.",
+      "exportBtn": "Export Backup",
+      "exporting": "Exporting…",
+      "exportSuccess": "Backup downloaded successfully",
+      "exportError": "Failed to export backup",
+      "restoreBtn": "Choose File & Restore",
+      "restoring": "Restoring…",
+      "restoreSuccess": "Data restored successfully — please refresh the page",
+      "restoreError": "Failed to restore backup",
+      "confirmTitle": "Restore Backup?",
+      "confirmDesc": "This will permanently overwrite ALL current data with the data from the backup file. This action cannot be undone.",
+      "confirmBtn": "Yes, Restore",
+      "cancelBtn": "Cancel"
+    }
   },
   "credentials": {
     "title": "Credentials",
@@ -434,6 +450,11 @@
     "role": "Role",
     "worker": "Worker",
     "admin": "Admin",
+    "manager": "Manager",
+    "changeRole": "Change Role",
+    "promoteToManager": "Promote to Manager",
+    "demoteToWorker": "Demote to Worker",
+    "roleUpdated": "Role updated",
     "linkedWorker": "Linked Worker",
     "resetPassword": "Reset Password",
     "delete": "Delete",
@@ -485,6 +506,7 @@
     "totalRevenue": "Total Revenue",
     "workshopShare": "Workshop Share",
     "workerShare": "Worker Share",
+    "cardBalancePlusVat": "Card Balance + VAT",
     "expenses": "Expenses",
     "parts": "Parts",
     "netProfit": "Net Profit (excl. VAT)",
