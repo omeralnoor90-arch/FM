@@ -508,17 +508,24 @@ export default function ReportsPage() {
                   <span className="ms-auto text-xs text-blue-600 dark:text-blue-400">{s.jobCount > 0 ? `${data.jobs.filter(j => j.paymentMethod !== "cash").length} ${t("reports.jobs")}` : ""}</span>
                 </div>
                 <div className="p-4 space-y-1 text-sm">
-                  <AnalysisRow label={t("dashboard.cardBalance")} value={s.allTimeCardBalance} currency={currency} bold highlight={s.allTimeCardBalance >= 0 ? "blue" : "rose"} />
+                  <AnalysisRow label={t("dashboard.cardBalance")} value={s.allTimeCardBalance} currency={currency} />
                   {s.allTimeCardDirectExp > 0 && (
                     <AnalysisRow label={t("reports.directExpenses")} value={s.allTimeCardDirectExp} currency={currency} deduct />
                   )}
                   {s.allTimeCardParts > 0 && (
                     <AnalysisRow label={t("reports.parts")} value={s.allTimeCardParts} currency={currency} deduct />
                   )}
-                  <div className="border-t border-blue-200 dark:border-blue-800 mt-2 pt-2 space-y-1">
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("reports.vatCollected")}</p>
-                    <AnalysisRow label={t("reports.vatCollected")} value={s.allTimeVat} currency={currency} />
-                    <AnalysisRow label={t("reports.netAfterVat")} value={s.allTimeCardNetRevenue} currency={currency} />
+                  {s.allTimeVat > 0 && (
+                    <AnalysisRow label={t("reports.vatCollected")} value={s.allTimeVat} currency={currency} deduct />
+                  )}
+                  <div className="border-t border-blue-200 dark:border-blue-800 mt-2 pt-2">
+                    <AnalysisRow
+                      label={t("reports.netAfterVat")}
+                      value={s.allTimeCardNetRevenue}
+                      currency={currency}
+                      bold
+                      highlight={s.allTimeCardNetRevenue >= 0 ? "blue" : "rose"}
+                    />
                   </div>
                 </div>
               </div>
