@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "BK_IsvYu19mjJsR_SkGCj"
+uri = "file://workshop-finance-backup.tar.gz"
+type = "unspecified"
+title = "Workshop Finance — Full Backup (tar.gz)"

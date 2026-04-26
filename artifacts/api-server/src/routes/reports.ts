@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, jobsTable, expensesTable, partsTable, workersTable, jobAttachmentsTable, jobWorkerSharesTable, workerPaymentsTable, workerAdjustmentsTable, jobExpenseLinesTable } from "@workspace/db";
+import { db, jobsTable, expensesTable, partsTable, workersTable, jobAttachmentsTable, jobWorkerSharesTable, workerPaymentsTable, workerAdjustmentsTable, jobExpenseLinesTable, workerTransfersTable, workerDebtsTable } from "@workspace/db";
 import { eq, gte, lte, and, desc, inArray } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -72,11 +72,16 @@ router.get("/reports", async (req, res) => {
   const allWorkerPayments = await db.select().from(workerPaymentsTable);
   const paymentsByWorker: Record<number, number> = {};
   for (const p of allWorkerPayments) {
-    paymentsByWorker[p.workerId] = (paymentsByWorker[p.workerId] ?? 0) + Number(p.amount);
+    // Use abs() to match ledger endpoint — payments are always reductions
+    paymentsByWorker[p.workerId] = (paymentsByWorker[p.workerId] ?? 0) + Math.abs(Number(p.amount));
   }
 
   // ── 5b. Worker adjustments (all time — affects per-worker balance) ──────
   const allAdjustments = await db.select().from(workerAdjustmentsTable);
+
+  // ── 5e. Worker transfers and debts (all-time for accurate remaining) ───
+  const allTransfers = await db.select().from(workerTransfersTable);
+  const allDebts = await db.select().from(workerDebtsTable);
 
   // ── 5c. Job expense lines for period jobs ─────────────────────────────
   const periodJobExpenseLines = jobIds.length > 0
@@ -247,9 +252,21 @@ router.get("/reports", async (req, res) => {
       .filter((a) => a.workerId === w.id && a.type === "deduction")
       .reduce((s, a) => s + Number(a.amount), 0);
 
+    // Worker-to-worker transfers: sent (+) relieve debt, received (-) add to what worker holds
+    const transferNet = allTransfers.reduce((s, t) => {
+      if (t.fromWorkerId === w.id) return s + Number(t.amount);
+      if (t.toWorkerId === w.id) return s - Number(t.amount);
+      return s;
+    }, 0);
+
+    // Uncollected debts reduce the net balance
+    const workerDebtsTotal = allDebts
+      .filter((d) => d.workerId === w.id && !d.collected)
+      .reduce((s, d) => s + Number(d.amount), 0);
+
     const totalEarned = earned + sharedEarned;
     const totalReimbursements = reimbursements + jobLineReimb + adjReimb;
-    const netBalance = totalEarned + totalReimbursements - cashCollected - adjDeduct;
+    const netBalance = totalEarned + totalReimbursements - cashCollected - adjDeduct - workerDebtsTotal + transferNet;
     const totalPaid = paymentsByWorker[w.id] ?? 0;
     const remaining = netBalance - totalPaid;
 
