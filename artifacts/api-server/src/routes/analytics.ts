@@ -132,9 +132,92 @@ router.get("/analytics/summary", async (req, res) => {
     .filter((p) => p.paidWith !== "cash")
     .reduce((s, p) => s + Number(p.amount) * Number(p.quantity), 0);
 
-  const monthlyCashBalance = monthlyCashGross - monthlyTotalWorkerEarnings - monthlyCashDirectExp - monthlyCashParts;
-  const monthlyCardBalance = monthlyCardNet - monthlyCardDirectExp - monthlyCardParts;
-  const workshopProfit = monthlyCashBalance + monthlyCardBalance;
+  // ── Workshop Profit = all-time Cash Balance + all-time Card Balance ──────
+  // Must use the same formula as analytics/balances so the three dashboard
+  // cards are always consistent: Cash Balance + Card Balance = Monthly Profit.
+  const allJobs = await db.select().from(jobsTable).where(eq(jobsTable.status, "approved"));
+  const allExpenses = await db.select().from(expensesTable);
+  const allParts = await db.select().from(partsTable);
+  const allWorkers = await db.select().from(workersTable);
+  const allPayments = await db.select().from(workerPaymentsTable);
+  const allSharedShares = await db.select().from(jobWorkerSharesTable);
+  const allExpenseLinesForProfit = await db.select().from(jobExpenseLinesTable);
+  const allAdjustmentsForProfit = await db.select().from(workerAdjustmentsTable);
+  const allTransfers = await db.select().from(workerTransfersTable);
+  const allDebts = await db.select().from(workerDebtsTable);
+
+  const allApprovedJobIds = new Set(allJobs.map((j) => j.id));
+
+  // Card balance (all-time)
+  let allTimeCardNet = 0;
+  for (const j of allJobs) {
+    if (j.paymentMethod !== "cash") allTimeCardNet += Number(j.netAmount);
+  }
+  const allTimeCardDirectExp = allExpenses
+    .filter((e) => e.workerId === null && e.paidWith !== "cash")
+    .reduce((s, e) => s + Number(e.amount), 0);
+  const allTimeCardParts = allParts
+    .filter((p) => p.paidWith !== "cash")
+    .reduce((s, p) => s + Number(p.amount) * Number(p.quantity), 0);
+  const allTimeCardBalance = allTimeCardNet - allTimeCardDirectExp - allTimeCardParts;
+
+  // Cash on hand (all-time, worker-balance formula — mirrors analytics/balances exactly)
+  let sumOfWorkerRemaining = 0;
+  for (const w of allWorkers) {
+    const singleEarned = allJobs
+      .filter((j) => j.workerId === w.id)
+      .reduce((s, j) => s + Number(j.workerShare), 0);
+    const sharedEarned = allSharedShares
+      .filter((sh) => sh.workerId === w.id && allApprovedJobIds.has(sh.jobId))
+      .reduce((s, sh) => s + Number(sh.amount), 0);
+    const workerEarned = singleEarned + sharedEarned;
+
+    const cashCollected = allJobs
+      .filter((j) => j.cashReceivedByWorkerId === w.id)
+      .reduce((s, j) => s + Number(j.grossAmount), 0);
+
+    const jobLineReimb = allExpenseLinesForProfit
+      .filter((el) => el.paidByWorkerId === w.id && allApprovedJobIds.has(el.jobId ?? -1))
+      .reduce((s, el) => s + Number(el.amount), 0);
+    const workerExpReimb = allExpenses
+      .filter((e) => e.workerId === w.id)
+      .reduce((s, e) => s + Number(e.amount), 0);
+    const adjReimb = allAdjustmentsForProfit
+      .filter((a) => a.workerId === w.id && a.type === "reimbursement")
+      .reduce((s, a) => s + Number(a.amount), 0);
+    const adjDeduct = allAdjustmentsForProfit
+      .filter((a) => a.workerId === w.id && a.type === "deduction")
+      .reduce((s, a) => s + Number(a.amount), 0);
+
+    const reimbursements = jobLineReimb + workerExpReimb + adjReimb;
+
+    const transferNet = allTransfers.reduce((s, t) => {
+      if (t.fromWorkerId === w.id) return s + Number(t.amount);
+      if (t.toWorkerId === w.id) return s - Number(t.amount);
+      return s;
+    }, 0);
+
+    const workerDebts = allDebts
+      .filter((d) => d.workerId === w.id && !d.collected)
+      .reduce((s, d) => s + Number(d.amount), 0);
+
+    const netOwed = workerEarned + reimbursements - cashCollected - adjDeduct - workerDebts + transferNet;
+    const paid = allPayments
+      .filter((p) => p.workerId === w.id)
+      .reduce((s, p) => s + Math.abs(Number(p.amount)), 0);
+
+    sumOfWorkerRemaining += netOwed - paid;
+  }
+
+  const allTimeCashDirectExp = allExpenses
+    .filter((e) => e.workerId === null && e.paidWith === "cash")
+    .reduce((s, e) => s + Number(e.amount), 0);
+  const allTimeCashParts = allParts
+    .filter((p) => p.paidWith === "cash")
+    .reduce((s, p) => s + Number(p.amount) * Number(p.quantity), 0);
+  const allTimeCashOnHand = -sumOfWorkerRemaining - allTimeCashDirectExp - allTimeCashParts;
+
+  const workshopProfit = allTimeCashOnHand + allTimeCardBalance;
 
   res.json({
     grossIncome,
