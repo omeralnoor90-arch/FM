@@ -135,7 +135,7 @@
     "cardGrossLbl": "Card gross received",
     "vatDeductLbl": "VAT (excl.)",
     "allTimeNote": "All-time accumulated balance",
-    "thisMonthNote": "This month",
+    "thisMonthNote": "All-time accumulated balance",
     "formulaCardBalance": "= Card gross − card expenses",
     "formulaMonthlyProfit": "= Cash Balance + Card Balance"
   },
