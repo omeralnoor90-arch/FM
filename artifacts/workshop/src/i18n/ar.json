@@ -135,7 +135,7 @@
     "cardGrossLbl": "إجمالي استلام الكارت",
     "vatDeductLbl": "ضريبة القيمة المضافة (مستبعدة)",
     "allTimeNote": "الرصيد المتراكم منذ البداية",
-    "thisMonthNote": "هذا الشهر",
+    "thisMonthNote": "الرصيد التراكمي الكلي",
     "formulaCardBalance": "= إجمالي الكارت − مصروفات الكارت",
     "formulaMonthlyProfit": "= رصيد النقد + رصيد الكارت"
   },
