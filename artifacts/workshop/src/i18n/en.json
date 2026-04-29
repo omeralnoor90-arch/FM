@@ -621,6 +621,13 @@
     "historyTitle": "Attendance History",
     "noHistory": "No attendance records yet",
     "checkInFailed": "Check-in failed. Please try again.",
-    "checkingInWithoutLocation": "Checking in without location"
+    "checkingInWithoutLocation": "Checking in without location",
+    "saveFailed": "Save failed",
+    "workerRules": "Worker Attendance Rules",
+    "workerRulesHint": "Choose who must attend, who may optionally check in, and who is exempt",
+    "modeRequired": "Required",
+    "modeOptional": "Optional",
+    "modeExempt": "Exempt",
+    "noWorkers": "No active workers found"
   }
 }
