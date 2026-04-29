@@ -43,6 +43,7 @@ export const workersTable = pgTable("workers", {
     .notNull()
     .default("0"),
   active: boolean("active").notNull().default(true),
+  attendanceMode: text("attendance_mode").notNull().default("required"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
