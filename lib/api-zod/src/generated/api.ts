@@ -185,9 +185,6 @@ export const GetWorkerLedgerResponse = zod.object({
     .describe(
       "Positive = workshop owes worker; negative = worker owes workshop",
     ),
-  remainingBalance: zod
-    .number()
-    .describe("Remaining amount owed (only unpaid job_earned entries counted)"),
 });
 
 /**
@@ -197,7 +194,6 @@ export const ListJobsQueryParams = zod.object({
   workerId: zod.coerce.number().optional(),
   from: zod.date().optional(),
   to: zod.date().optional(),
-  status: zod.enum(["approved", "pending", "rejected", "all"]).optional(),
 });
 
 export const ListJobsResponseItem = zod.object({
@@ -269,8 +265,6 @@ export const ListJobsResponseItem = zod.object({
     )
     .optional(),
   occurredAt: zod.coerce.date(),
-  status: zod.enum(["approved", "pending", "rejected"]).optional(),
-  submittedByWorkerId: zod.number().nullish(),
 });
 export const ListJobsResponse = zod.array(ListJobsResponseItem);
 
@@ -321,12 +315,8 @@ export const CreateJobBody = zod.object({
       }),
     )
     .optional(),
-  plateNumber: zod.string().optional(),
-  carModel: zod.string().optional(),
   notes: zod.string().optional(),
   occurredAt: zod.coerce.date().optional(),
-  /** Override the worker revenue share % for this job (0-100). For single jobs overrides the worker's default %. For shared jobs overrides the workers' pool split (default 50). */
-  workerPercentOverride: zod.number().min(0).max(100).optional(),
 });
 
 export const DeleteJobParams = zod.object({
@@ -348,13 +338,6 @@ export const UpdateJobExpensesBody = zod.object({
       paidByWorkerId: zod.number().nullish(),
     }),
   ),
-  source: zod.string().optional(),
-  plateNumber: zod.string().nullish(),
-  carModel: zod.string().nullish(),
-  grossAmount: zod.number().positive().optional(),
-  paymentMethod: zod.enum(["cash", "card"]).optional(),
-  vatPaidByCustomer: zod.boolean().optional(),
-  occurredAt: zod.string().optional(),
 });
 
 export const UpdateJobExpensesResponse = zod.object({
@@ -447,7 +430,6 @@ export const ListExpensesResponseItem = zod.object({
     .describe("Optional - tied to a specific worker (e.g. advance\/loan)"),
   workerName: zod.string().nullish(),
   paidWith: zod.enum(["cash", "card"]).optional(),
-  invoiceObjectPath: zod.string().nullish(),
   occurredAt: zod.coerce.date(),
 });
 export const ListExpensesResponse = zod.array(ListExpensesResponseItem);
@@ -458,7 +440,6 @@ export const CreateExpenseBody = zod.object({
   category: zod.string(),
   workerId: zod.number().nullish(),
   paidWith: zod.enum(["cash", "card"]),
-  invoiceObjectPath: zod.string().nullish(),
   occurredAt: zod.coerce.date().optional(),
 });
 
@@ -479,7 +460,6 @@ export const ListPartsResponseItem = zod.object({
   quantity: zod.number().optional(),
   paidWith: zod.enum(["cash", "card"]),
   jobId: zod.number().nullish(),
-  invoiceObjectPath: zod.string().nullish(),
   occurredAt: zod.coerce.date(),
 });
 export const ListPartsResponse = zod.array(ListPartsResponseItem);
@@ -491,7 +471,6 @@ export const CreatePartBody = zod.object({
   quantity: zod.number().optional(),
   paidWith: zod.enum(["cash", "card"]),
   jobId: zod.number().nullish(),
-  invoiceObjectPath: zod.string().nullish(),
   occurredAt: zod.coerce.date().optional(),
 });
 
@@ -566,10 +545,7 @@ export const GetBalancesResponse = zod.object({
     .describe("Workshop's cash share minus cash expenses"),
   cardBalance: zod
     .number()
-    .describe("Workshop's card share (including VAT fees) minus card expenses"),
-  totalVat: zod
-    .number()
-    .describe("Total VAT (card fees) collected across all approved card jobs"),
+    .describe("Workshop's card share minus card expenses"),
   totalAvailable: zod.number(),
 });
 
@@ -653,48 +629,159 @@ export const DeleteJobAttachmentParams = zod.object({
   attachmentId: zod.coerce.number(),
 });
 
-export const CreateWorkerTransferBody = zod.object({
-  fromWorkerId: zod.number().int().positive(),
-  toWorkerId: zod.number().int().positive(),
-  amount: zod.number().positive(),
-  note: zod.string().optional(),
-  occurredAt: zod.coerce.date().optional(),
-});
-
-export const WorkerTransferItem = zod.object({
+/**
+ * @summary Get attendance settings (admin/manager)
+ */
+export const GetAttendanceSettingsResponse = zod.object({
   id: zod.number(),
-  fromWorkerId: zod.number(),
-  fromWorkerName: zod.string(),
-  toWorkerId: zod.number(),
-  toWorkerName: zod.string(),
-  amount: zod.number(),
-  note: zod.string().nullish(),
-  occurredAt: zod.coerce.date(),
+  isActive: zod.boolean(),
+  workStartTime: zod.string().describe("HH:MM format, e.g. 08:00"),
+  graceMinutes: zod.number(),
+  locationName: zod.string(),
+  locationLat: zod.number().nullish(),
+  locationLng: zod.number().nullish(),
+  locationRadiusMeters: zod.number(),
+  updatedAt: zod.coerce.date(),
 });
 
-export const ListWorkerTransfersResponse = zod.array(WorkerTransferItem);
-
-export const CreateWorkerDebtBody = zod.object({
-  amount: zod.number().positive(),
-  description: zod.string().min(1),
-  occurredAt: zod.coerce.date().optional(),
+/**
+ * @summary Update attendance settings (admin only)
+ */
+export const UpdateAttendanceSettingsBody = zod.object({
+  isActive: zod.boolean().optional(),
+  workStartTime: zod.string().optional(),
+  graceMinutes: zod.number().optional(),
+  locationName: zod.string().optional(),
+  locationLat: zod.number().nullish(),
+  locationLng: zod.number().nullish(),
+  locationRadiusMeters: zod.number().optional(),
 });
 
-export const UpdateWorkerDebtBody = zod.object({
-  amount: zod.number().positive().optional(),
-  description: zod.string().min(1).optional(),
-  collected: zod.boolean().optional(),
-  occurredAt: zod.coerce.date().optional(),
+export const UpdateAttendanceSettingsResponse = zod.object({
+  id: zod.number(),
+  isActive: zod.boolean(),
+  workStartTime: zod.string().describe("HH:MM format, e.g. 08:00"),
+  graceMinutes: zod.number(),
+  locationName: zod.string(),
+  locationLat: zod.number().nullish(),
+  locationLng: zod.number().nullish(),
+  locationRadiusMeters: zod.number(),
+  updatedAt: zod.coerce.date(),
 });
 
-export const WorkerDebtItem = zod.object({
+/**
+ * @summary Worker checks in with their location
+ */
+export const CheckInBody = zod.object({
+  lat: zod.number().nullish(),
+  lng: zod.number().nullish(),
+});
+
+export const CheckInResponse = zod.object({
   id: zod.number(),
   workerId: zod.number(),
-  amount: zod.number(),
-  description: zod.string(),
-  collected: zod.boolean(),
-  collectedAt: zod.coerce.date().nullish(),
-  occurredAt: zod.coerce.date(),
+  workerName: zod.string().optional(),
+  checkDate: zod.coerce.date(),
+  checkInAt: zod.coerce.date(),
+  lat: zod.number().nullish(),
+  lng: zod.number().nullish(),
+  distanceMeters: zod.number().nullish(),
+  isWithinZone: zod.boolean().nullish(),
+  status: zod.enum(["on-time", "late", "outside-zone", "present"]),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
 });
 
-export const ListWorkerDebtsResponse = zod.array(WorkerDebtItem);
+/**
+ * @summary Get all workers attendance for today (admin/manager)
+ */
+export const GetTodayAttendanceResponseItem = zod.object({
+  workerId: zod.number(),
+  workerName: zod.string(),
+  hasCheckedIn: zod.boolean(),
+  record: zod
+    .object({
+      id: zod.number(),
+      workerId: zod.number(),
+      workerName: zod.string().optional(),
+      checkDate: zod.coerce.date(),
+      checkInAt: zod.coerce.date(),
+      lat: zod.number().nullish(),
+      lng: zod.number().nullish(),
+      distanceMeters: zod.number().nullish(),
+      isWithinZone: zod.boolean().nullish(),
+      status: zod.enum(["on-time", "late", "outside-zone", "present"]),
+      notes: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    })
+    .nullish(),
+});
+export const GetTodayAttendanceResponse = zod.array(
+  GetTodayAttendanceResponseItem,
+);
+
+/**
+ * @summary List attendance records with optional date range filter (admin/manager)
+ */
+export const ListAttendanceRecordsQueryParams = zod.object({
+  from: zod.date().optional(),
+  to: zod.date().optional(),
+  workerId: zod.coerce.number().optional(),
+});
+
+export const ListAttendanceRecordsResponseItem = zod.object({
+  id: zod.number(),
+  workerId: zod.number(),
+  workerName: zod.string().optional(),
+  checkDate: zod.coerce.date(),
+  checkInAt: zod.coerce.date(),
+  lat: zod.number().nullish(),
+  lng: zod.number().nullish(),
+  distanceMeters: zod.number().nullish(),
+  isWithinZone: zod.boolean().nullish(),
+  status: zod.enum(["on-time", "late", "outside-zone", "present"]),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListAttendanceRecordsResponse = zod.array(
+  ListAttendanceRecordsResponseItem,
+);
+
+/**
+ * @summary Get current worker's attendance record for today
+ */
+export const GetMyTodayAttendanceResponse = zod.object({
+  id: zod.number(),
+  workerId: zod.number(),
+  workerName: zod.string().optional(),
+  checkDate: zod.coerce.date(),
+  checkInAt: zod.coerce.date(),
+  lat: zod.number().nullish(),
+  lng: zod.number().nullish(),
+  distanceMeters: zod.number().nullish(),
+  isWithinZone: zod.boolean().nullish(),
+  status: zod.enum(["on-time", "late", "outside-zone", "present"]),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get current worker's attendance history
+ */
+export const ListMyAttendanceRecordsResponseItem = zod.object({
+  id: zod.number(),
+  workerId: zod.number(),
+  workerName: zod.string().optional(),
+  checkDate: zod.coerce.date(),
+  checkInAt: zod.coerce.date(),
+  lat: zod.number().nullish(),
+  lng: zod.number().nullish(),
+  distanceMeters: zod.number().nullish(),
+  isWithinZone: zod.boolean().nullish(),
+  status: zod.enum(["on-time", "late", "outside-zone", "present"]),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListMyAttendanceRecordsResponse = zod.array(
+  ListMyAttendanceRecordsResponseItem,
+);
