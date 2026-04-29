@@ -20,6 +20,7 @@ function serializeWorker(w: typeof workersTable.$inferSelect) {
     equityPercent: Number(w.equityPercent),
     active: w.active,
     createdAt: w.createdAt.toISOString(),
+    attendanceMode: w.attendanceMode ?? "required",
   };
 }
 
