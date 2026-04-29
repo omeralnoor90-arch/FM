@@ -776,7 +776,7 @@ export default function Jobs() {
   const sharedOverflow = sharedWorkersTotal > sharedWorkerPool + 0.001;
   const sharedRemaining = sharedWorkerPool - sharedWorkersTotal;
 
-  const currency = settings?.currency || "USD";
+  const currency = settings?.currency || "SAR";
 
   // ── Shared worker auto-distribute (respects locks) ──
   const handleWorkerAmountChange = (changedIdx: number, newValue: number) => {
