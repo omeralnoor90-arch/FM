@@ -13,7 +13,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle2,
   XCircle,
@@ -23,9 +22,17 @@ import {
   Loader2,
   Navigation,
   ShieldCheck,
+  WifiOff,
 } from "lucide-react";
 
 type AttendanceStatus = "on-time" | "late" | "outside-zone" | "present";
+
+type CheckInError =
+  | { kind: "location_denied" }
+  | { kind: "outside_zone"; distanceMeters: number; radiusMeters: number }
+  | { kind: "geo_unavailable" }
+  | { kind: "geo_denied" }
+  | { kind: "unknown" };
 
 function StatusCard({ status, checkInAt, distanceMeters }: {
   status: AttendanceStatus;
@@ -36,27 +43,27 @@ function StatusCard({ status, checkInAt, distanceMeters }: {
 
   const config: Record<AttendanceStatus, { icon: JSX.Element; bg: string; text: string; label: string }> = {
     "on-time": {
-      icon: <CheckCircle2 size={32} className="text-green-400" />,
-      bg: "bg-green-900/20 border-green-800",
-      text: "text-green-400",
+      icon: <CheckCircle2 size={32} className="text-green-600 dark:text-green-400" />,
+      bg: "border-green-200 dark:border-green-800",
+      text: "text-green-700 dark:text-green-400",
       label: t("attendance.statusOnTime"),
     },
     late: {
-      icon: <Clock size={32} className="text-yellow-400" />,
-      bg: "bg-yellow-900/20 border-yellow-800",
-      text: "text-yellow-400",
+      icon: <Clock size={32} className="text-yellow-600 dark:text-yellow-400" />,
+      bg: "border-yellow-200 dark:border-yellow-800",
+      text: "text-yellow-700 dark:text-yellow-400",
       label: t("attendance.statusLate"),
     },
     "outside-zone": {
-      icon: <AlertTriangle size={32} className="text-red-400" />,
-      bg: "bg-red-900/20 border-red-800",
-      text: "text-red-400",
+      icon: <AlertTriangle size={32} className="text-red-600 dark:text-red-400" />,
+      bg: "border-red-200 dark:border-red-800",
+      text: "text-red-700 dark:text-red-400",
       label: t("attendance.statusOutsideZone"),
     },
     present: {
-      icon: <CheckCircle2 size={32} className="text-blue-400" />,
-      bg: "bg-blue-900/20 border-blue-800",
-      text: "text-blue-400",
+      icon: <CheckCircle2 size={32} className="text-blue-600 dark:text-blue-400" />,
+      bg: "border-blue-200 dark:border-blue-800",
+      text: "text-blue-700 dark:text-blue-400",
       label: t("attendance.statusPresent"),
     },
   };
@@ -69,11 +76,11 @@ function StatusCard({ status, checkInAt, distanceMeters }: {
         {c.icon}
         <div>
           <div className={`text-lg font-bold ${c.text}`}>{c.label}</div>
-          <div className="text-zinc-400 text-sm mt-1">
+          <div className="text-muted-foreground text-sm mt-1">
             {t("attendance.checkedInAt")} {format(new Date(checkInAt), "HH:mm")}
           </div>
           {distanceMeters != null && (
-            <div className="text-zinc-500 text-xs mt-1 flex items-center justify-center gap-1">
+            <div className="text-muted-foreground text-xs mt-1 flex items-center justify-center gap-1">
               <MapPin size={10} />
               {distanceMeters}m {t("attendance.fromWorkshop")}
             </div>
@@ -84,9 +91,57 @@ function StatusCard({ status, checkInAt, distanceMeters }: {
   );
 }
 
-function CheckInButton() {
+function ErrorCard({ error, onRetry }: { error: CheckInError; onRetry: () => void }) {
   const { t } = useTranslation();
-  const { toast } = useToast();
+
+  let icon = <WifiOff size={32} className="text-red-500" />;
+  let title = "";
+  let desc = "";
+
+  if (error.kind === "location_denied" || error.kind === "geo_denied") {
+    icon = <MapPin size={32} className="text-red-500" />;
+    title = t("attendance.locationRequiredTitle");
+    desc = t("attendance.locationRequiredDesc");
+  } else if (error.kind === "geo_unavailable") {
+    icon = <WifiOff size={32} className="text-red-500" />;
+    title = t("attendance.locationRequiredTitle");
+    desc = t("attendance.locationRequiredDesc");
+  } else if (error.kind === "outside_zone") {
+    icon = <AlertTriangle size={32} className="text-orange-500" />;
+    title = t("attendance.outsideZoneTitle");
+    desc = t("attendance.outsideZoneDesc", {
+      distance: error.distanceMeters,
+      radius: error.radiusMeters,
+    });
+  } else {
+    icon = <XCircle size={32} className="text-red-500" />;
+    title = t("attendance.checkInFailed");
+    desc = "";
+  }
+
+  return (
+    <Card className="border-red-200 dark:border-red-800">
+      <CardContent className="pt-6 pb-6 flex flex-col items-center gap-4 text-center">
+        {icon}
+        <div>
+          <div className="text-base font-bold text-red-700 dark:text-red-400">{title}</div>
+          {desc && <p className="text-sm text-muted-foreground mt-1 max-w-xs">{desc}</p>}
+        </div>
+        <Button
+          variant="outline"
+          onClick={onRetry}
+          className="gap-2 border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950"
+        >
+          <Navigation size={14} />
+          {t("attendance.retryCheckIn")}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CheckInButton({ onError }: { onError: (e: CheckInError) => void }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [locating, setLocating] = useState(false);
 
@@ -96,50 +151,54 @@ function CheckInButton() {
         qc.invalidateQueries({ queryKey: getGetMyTodayAttendanceQueryKey() });
         qc.invalidateQueries({ queryKey: getListMyAttendanceRecordsQueryKey() });
       },
-      onError: () => {
-        toast({ title: t("attendance.checkInFailed"), variant: "destructive" });
+      onError: (err) => {
+        const body = (err as { response?: { data?: { error?: string; distanceMeters?: number; radiusMeters?: number } } })?.response?.data;
+        if (body?.error === "location_required") {
+          onError({ kind: "location_denied" });
+        } else if (body?.error === "outside_zone") {
+          onError({
+            kind: "outside_zone",
+            distanceMeters: body.distanceMeters ?? 0,
+            radiusMeters: body.radiusMeters ?? 0,
+          });
+        } else {
+          onError({ kind: "unknown" });
+        }
       },
     },
   });
 
-  function doCheckIn(lat?: number, lng?: number) {
-    checkInMutation.mutate({ data: { lat: lat ?? null, lng: lng ?? null } });
-  }
-
   function handleCheckIn() {
     if (!("geolocation" in navigator)) {
-      doCheckIn();
+      onError({ kind: "geo_unavailable" });
       return;
     }
+
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
-        doCheckIn(pos.coords.latitude, pos.coords.longitude);
+        checkInMutation.mutate({ data: { lat: pos.coords.latitude, lng: pos.coords.longitude } });
       },
       () => {
         setLocating(false);
-        toast({
-          title: t("attendance.locationDenied"),
-          description: t("attendance.checkingInWithoutLocation"),
-        });
-        doCheckIn();
+        onError({ kind: "geo_denied" });
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 15000 }
     );
   }
 
   const isPending = locating || checkInMutation.isPending;
 
   return (
-    <Card className="bg-zinc-900 border-zinc-800">
+    <Card>
       <CardContent className="pt-8 pb-8 flex flex-col items-center gap-5 text-center">
         <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center">
           <ShieldCheck size={36} className="text-primary" />
         </div>
         <div>
-          <h2 className="text-white text-lg font-bold">{t("attendance.checkInTitle")}</h2>
-          <p className="text-zinc-400 text-sm mt-1 max-w-xs">
+          <h2 className="text-foreground text-lg font-bold">{t("attendance.checkInTitle")}</h2>
+          <p className="text-muted-foreground text-sm mt-1 max-w-xs">
             {t("attendance.checkInHint")}
           </p>
         </div>
@@ -156,7 +215,7 @@ function CheckInButton() {
           )}
           {locating ? t("attendance.gettingLocation") : t("attendance.checkInButton")}
         </Button>
-        <p className="text-xs text-zinc-600 max-w-xs">
+        <p className="text-xs text-muted-foreground max-w-xs">
           {t("attendance.locationPermissionNote")}
         </p>
       </CardContent>
@@ -166,6 +225,7 @@ function CheckInButton() {
 
 export default function WorkerAttendance() {
   const { t } = useTranslation();
+  const [checkInError, setCheckInError] = useState<CheckInError | null>(null);
 
   const { data: todayRecord, isLoading: loadingToday } = useGetMyTodayAttendance({
     query: { retry: false, staleTime: 0, refetchOnMount: "always" as const },
@@ -180,49 +240,51 @@ export default function WorkerAttendance() {
   return (
     <div className="space-y-5 pb-8">
       <div className="pt-2">
-        <h1 className="text-white text-xl font-bold">{t("attendance.portalTitle")}</h1>
-        <p className="text-zinc-400 text-sm mt-0.5">
+        <h1 className="text-foreground text-xl font-bold">{t("attendance.portalTitle")}</h1>
+        <p className="text-muted-foreground text-sm mt-0.5">
           {new Date().toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
         </p>
       </div>
 
       {/* Today status / check-in */}
       {loadingToday ? (
-        <Skeleton className="h-40 bg-zinc-800" />
+        <Skeleton className="h-40" />
       ) : hasCheckedIn && todayRecord ? (
         <StatusCard
           status={(todayRecord as { status: AttendanceStatus }).status}
           checkInAt={(todayRecord as { checkInAt: string }).checkInAt}
           distanceMeters={(todayRecord as { distanceMeters?: number | null }).distanceMeters}
         />
+      ) : checkInError ? (
+        <ErrorCard error={checkInError} onRetry={() => setCheckInError(null)} />
       ) : (
-        <CheckInButton />
+        <CheckInButton onError={setCheckInError} />
       )}
 
       {/* History */}
       <div>
-        <h2 className="text-sm font-semibold text-zinc-400 mb-3">{t("attendance.historyTitle")}</h2>
+        <h2 className="text-sm font-semibold text-muted-foreground mb-3">{t("attendance.historyTitle")}</h2>
 
         {loadingHistory ? (
           <div className="space-y-2">
             {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-14 bg-zinc-800" />
+              <Skeleton key={i} className="h-14" />
             ))}
           </div>
         ) : !history || history.length === 0 ? (
-          <Card className="bg-zinc-900 border-zinc-800">
-            <CardContent className="pt-5 pb-5 text-center text-zinc-500 text-sm">
+          <Card>
+            <CardContent className="pt-5 pb-5 text-center text-muted-foreground text-sm">
               {t("attendance.noHistory")}
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-2">
             {history.slice(0, 30).map((r) => (
-              <Card key={r.id} className="bg-zinc-900 border-zinc-800">
+              <Card key={r.id}>
                 <CardContent className="py-3 px-4 flex items-center justify-between gap-2">
                   <div>
-                    <div className="text-sm text-white font-medium">{r.checkDate}</div>
-                    <div className="text-xs text-zinc-500 mt-0.5">
+                    <div className="text-sm text-foreground font-medium">{r.checkDate}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
                       {format(new Date(r.checkInAt), "HH:mm")}
                       {r.distanceMeters != null && (
                         <span className="ms-2 inline-flex items-center gap-1">
@@ -233,25 +295,25 @@ export default function WorkerAttendance() {
                     </div>
                   </div>
                   {r.status === "on-time" && (
-                    <Badge className="bg-green-900/40 text-green-400 border-green-700 text-xs gap-1">
+                    <Badge className="bg-green-100 text-green-700 border-green-300 dark:bg-green-900/40 dark:text-green-400 dark:border-green-700 text-xs gap-1">
                       <CheckCircle2 size={10} />
                       {t("attendance.statusOnTime")}
                     </Badge>
                   )}
                   {r.status === "late" && (
-                    <Badge className="bg-yellow-900/40 text-yellow-400 border-yellow-700 text-xs gap-1">
+                    <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-900/40 dark:text-yellow-400 dark:border-yellow-700 text-xs gap-1">
                       <Clock size={10} />
                       {t("attendance.statusLate")}
                     </Badge>
                   )}
                   {r.status === "outside-zone" && (
-                    <Badge className="bg-red-900/40 text-red-400 border-red-700 text-xs gap-1">
+                    <Badge className="bg-red-100 text-red-700 border-red-300 dark:bg-red-900/40 dark:text-red-400 dark:border-red-700 text-xs gap-1">
                       <AlertTriangle size={10} />
                       {t("attendance.statusOutsideZone")}
                     </Badge>
                   )}
                   {r.status === "present" && (
-                    <Badge className="bg-blue-900/40 text-blue-400 border-blue-700 text-xs gap-1">
+                    <Badge className="bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/40 dark:text-blue-400 dark:border-blue-700 text-xs gap-1">
                       <CheckCircle2 size={10} />
                       {t("attendance.statusPresent")}
                     </Badge>
