@@ -39,34 +39,34 @@ function StatusBadge({ status }: { status: string }) {
   const { t } = useTranslation();
   if (status === "on-time")
     return (
-      <Badge className="bg-green-900/40 text-green-400 border-green-700 gap-1">
+      <Badge className="bg-green-100 text-green-700 border-green-300 dark:bg-green-900/40 dark:text-green-400 dark:border-green-700 gap-1">
         <CheckCircle2 size={11} />
         {t("attendance.statusOnTime")}
       </Badge>
     );
   if (status === "late")
     return (
-      <Badge className="bg-yellow-900/40 text-yellow-400 border-yellow-700 gap-1">
+      <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-900/40 dark:text-yellow-400 dark:border-yellow-700 gap-1">
         <Clock size={11} />
         {t("attendance.statusLate")}
       </Badge>
     );
   if (status === "outside-zone")
     return (
-      <Badge className="bg-orange-900/40 text-orange-400 border-orange-700 gap-1">
+      <Badge className="bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/40 dark:text-orange-400 dark:border-orange-700 gap-1">
         <AlertTriangle size={11} />
         {t("attendance.statusOutsideZone")}
       </Badge>
     );
   if (status === "absent")
     return (
-      <Badge className="bg-red-900/40 text-red-400 border-red-700 gap-1">
+      <Badge className="bg-red-100 text-red-700 border-red-300 dark:bg-red-900/40 dark:text-red-400 dark:border-red-700 gap-1">
         <XCircle size={11} />
         {t("attendance.statusAbsent")}
       </Badge>
     );
   return (
-    <Badge className="bg-blue-900/40 text-blue-400 border-blue-700 gap-1">
+    <Badge className="bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/40 dark:text-blue-400 dark:border-blue-700 gap-1">
       <CheckCircle2 size={11} />
       {t("attendance.statusPresent")}
     </Badge>
@@ -77,16 +77,16 @@ function rowAccent(status: string) {
   if (status === "on-time") return "border-l-green-500";
   if (status === "late") return "border-l-yellow-500";
   if (status === "outside-zone") return "border-l-orange-500";
-  if (status === "absent") return "border-l-red-600";
+  if (status === "absent") return "border-l-red-500";
   return "border-l-blue-500";
 }
 
 function dotColor(status: string) {
-  if (status === "on-time") return "bg-green-400";
-  if (status === "late") return "bg-yellow-400";
-  if (status === "outside-zone") return "bg-orange-400";
+  if (status === "on-time") return "bg-green-500";
+  if (status === "late") return "bg-yellow-500";
+  if (status === "outside-zone") return "bg-orange-500";
   if (status === "absent") return "bg-red-500";
-  return "bg-blue-400";
+  return "bg-blue-500";
 }
 
 function workerStatus(w: { hasCheckedIn: boolean; record?: { status: string } | null }) {
@@ -112,7 +112,7 @@ function TodayTab() {
     return (
       <div className="space-y-3">
         {[...Array(5)].map((_, i) => (
-          <Skeleton key={i} className="h-16 bg-zinc-800" />
+          <Skeleton key={i} className="h-16" />
         ))}
       </div>
     );
@@ -133,22 +133,22 @@ function TodayTab() {
     <div className="space-y-4">
       {/* ── Summary ── */}
       <div className="grid grid-cols-3 gap-2">
-        <Card className="bg-zinc-900 border-zinc-800 border-l-4 border-l-green-500">
+        <Card className="border-l-4 border-l-green-500">
           <CardContent className="pt-3 pb-3 text-center">
-            <div className="text-2xl font-bold text-green-400">{onTimeCount}</div>
-            <div className="text-xs text-zinc-400 mt-0.5">{t("attendance.statusOnTime")}</div>
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{onTimeCount}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{t("attendance.statusOnTime")}</div>
           </CardContent>
         </Card>
-        <Card className="bg-zinc-900 border-zinc-800 border-l-4 border-l-yellow-500">
+        <Card className="border-l-4 border-l-yellow-500">
           <CardContent className="pt-3 pb-3 text-center">
-            <div className="text-2xl font-bold text-yellow-400">{lateCount}</div>
-            <div className="text-xs text-zinc-400 mt-0.5">{t("attendance.statusLate")}</div>
+            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{lateCount}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{t("attendance.statusLate")}</div>
           </CardContent>
         </Card>
-        <Card className="bg-zinc-900 border-zinc-800 border-l-4 border-l-red-600">
+        <Card className="border-l-4 border-l-red-500">
           <CardContent className="pt-3 pb-3 text-center">
-            <div className="text-2xl font-bold text-red-400">{absentCount}</div>
-            <div className="text-xs text-zinc-400 mt-0.5">{t("attendance.statusAbsent")}</div>
+            <div className="text-2xl font-bold text-red-600 dark:text-red-400">{absentCount}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{t("attendance.statusAbsent")}</div>
           </CardContent>
         </Card>
       </div>
@@ -158,23 +158,20 @@ function TodayTab() {
         {required.map((w) => {
           const st = workerStatus(w);
           return (
-            <Card
-              key={w.workerId}
-              className={`bg-zinc-900 border-zinc-800 border-l-4 ${rowAccent(st)}`}
-            >
+            <Card key={w.workerId} className={`border-l-4 ${rowAccent(st)}`}>
               <CardContent className="py-3 px-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dotColor(st)}`} />
-                  <span className="font-medium text-sm text-white truncate">{w.workerName}</span>
+                  <span className="font-medium text-sm text-foreground truncate">{w.workerName}</span>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {w.hasCheckedIn && w.record ? (
                     <>
-                      <span className="text-xs text-zinc-400 font-mono">
+                      <span className="text-xs text-muted-foreground font-mono">
                         {format(new Date(w.record.checkInAt), "HH:mm")}
                       </span>
                       {w.record.distanceMeters != null && (
-                        <span className="text-xs text-zinc-500 flex items-center gap-0.5">
+                        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
                           <MapPin size={10} />
                           {w.record.distanceMeters}m
                         </span>
@@ -194,7 +191,7 @@ function TodayTab() {
       {/* ── Optional workers ── */}
       {optional.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider px-1">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">
             {t("attendance.optionalSection")}
           </p>
           {optional
@@ -204,20 +201,18 @@ function TodayTab() {
               return (
                 <Card
                   key={w.workerId}
-                  className={`bg-zinc-900/60 border-zinc-800 border-l-4 ${
-                    w.hasCheckedIn ? rowAccent(st) : "border-l-zinc-700"
-                  }`}
+                  className={`border-l-4 ${w.hasCheckedIn ? rowAccent(st) : "border-l-border"}`}
                 >
                   <CardContent className="py-3 px-4 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div
                         className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                          w.hasCheckedIn ? dotColor(st) : "bg-zinc-600"
+                          w.hasCheckedIn ? dotColor(st) : "bg-muted-foreground/30"
                         }`}
                       />
                       <span
                         className={`font-medium text-sm truncate ${
-                          w.hasCheckedIn ? "text-white" : "text-zinc-500"
+                          w.hasCheckedIn ? "text-foreground" : "text-muted-foreground"
                         }`}
                       >
                         {w.workerName}
@@ -226,13 +221,13 @@ function TodayTab() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {w.hasCheckedIn && w.record ? (
                         <>
-                          <span className="text-xs text-zinc-400 font-mono">
+                          <span className="text-xs text-muted-foreground font-mono">
                             {format(new Date(w.record.checkInAt), "HH:mm")}
                           </span>
                           <StatusBadge status={w.record.status} />
                         </>
                       ) : (
-                        <span className="text-xs text-zinc-600">{t("attendance.didNotAttend")}</span>
+                        <span className="text-xs text-muted-foreground">{t("attendance.didNotAttend")}</span>
                       )}
                     </div>
                   </CardContent>
@@ -308,26 +303,26 @@ function HistoryTab() {
           type="date"
           value={from}
           onChange={(e) => setFrom(e.target.value)}
-          className="bg-zinc-800 border-zinc-700 text-white h-9 text-sm"
+          className="h-9 text-sm"
         />
-        <span className="text-zinc-500 text-sm">→</span>
+        <span className="text-muted-foreground text-sm">→</span>
         <Input
           type="date"
           value={to}
           onChange={(e) => setTo(e.target.value)}
-          className="bg-zinc-800 border-zinc-700 text-white h-9 text-sm"
+          className="h-9 text-sm"
         />
       </div>
 
       {isLoading ? (
         <div className="space-y-2">
           {[...Array(8)].map((_, i) => (
-            <Skeleton key={i} className="h-14 bg-zinc-800" />
+            <Skeleton key={i} className="h-14" />
           ))}
         </div>
       ) : groupedByDate.length === 0 ? (
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardContent className="pt-6 pb-6 text-center text-zinc-500 text-sm">
+        <Card>
+          <CardContent className="pt-6 pb-6 text-center text-muted-foreground text-sm">
             {t("attendance.noRecords")}
           </CardContent>
         </Card>
@@ -337,11 +332,11 @@ function HistoryTab() {
             <div key={date} className="space-y-1.5">
               {/* Date header with mini summary */}
               <div className="flex items-center justify-between px-1">
-                <span className="text-sm font-semibold text-zinc-300">{date}</span>
+                <span className="text-sm font-semibold text-foreground">{date}</span>
                 <div className="flex items-center gap-3 text-xs">
-                  <span className="text-green-400 font-medium">{onTime} ✓</span>
-                  {late > 0 && <span className="text-yellow-400 font-medium">{late} ⏰</span>}
-                  {absent > 0 && <span className="text-red-400 font-medium">{absent} ✗</span>}
+                  <span className="text-green-600 dark:text-green-400 font-medium">{onTime} ✓</span>
+                  {late > 0 && <span className="text-yellow-600 dark:text-yellow-400 font-medium">{late} ⏰</span>}
+                  {absent > 0 && <span className="text-red-600 dark:text-red-400 font-medium">{absent} ✗</span>}
                 </div>
               </div>
 
@@ -349,14 +344,14 @@ function HistoryTab() {
               {rows.map((r) => (
                 <Card
                   key={r.workerId}
-                  className={`bg-zinc-900 border-zinc-800 border-l-4 ${rowAccent(r.status)}`}
+                  className={`border-l-4 ${rowAccent(r.status)}`}
                 >
                   <CardContent className="py-2.5 px-4 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor(r.status)}`} />
                       <span
                         className={`font-medium text-sm truncate ${
-                          r.status === "absent" ? "text-zinc-500" : "text-white"
+                          r.status === "absent" ? "text-muted-foreground" : "text-foreground"
                         }`}
                       >
                         {r.workerName}
@@ -365,11 +360,11 @@ function HistoryTab() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {r.record ? (
                         <>
-                          <span className="text-xs text-zinc-400 font-mono">
+                          <span className="text-xs text-muted-foreground font-mono">
                             {format(new Date(r.record.checkInAt), "HH:mm")}
                           </span>
                           {r.record.distanceMeters != null && (
-                            <span className="text-xs text-zinc-600 flex items-center gap-0.5">
+                            <span className="text-xs text-muted-foreground flex items-center gap-0.5">
                               <MapPin size={9} />
                               {r.record.distanceMeters}m
                             </span>
@@ -515,7 +510,7 @@ function SettingsTab() {
     return (
       <div className="space-y-3">
         {[...Array(6)].map((_, i) => (
-          <Skeleton key={i} className="h-12 bg-zinc-800" />
+          <Skeleton key={i} className="h-12" />
         ))}
       </div>
     );
@@ -524,13 +519,13 @@ function SettingsTab() {
 
   return (
     <div className="space-y-5">
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card>
         <CardContent className="pt-5 pb-5 space-y-5">
           {/* Active toggle */}
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-sm font-medium text-white">{t("attendance.systemActive")}</Label>
-              <p className="text-xs text-zinc-500 mt-0.5">{t("attendance.systemActiveHint")}</p>
+              <Label className="text-sm font-medium text-foreground">{t("attendance.systemActive")}</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">{t("attendance.systemActiveHint")}</p>
             </div>
             <Switch
               checked={form.isActive}
@@ -538,22 +533,22 @@ function SettingsTab() {
             />
           </div>
 
-          <div className="h-px bg-zinc-800" />
+          <div className="h-px bg-border" />
 
           {/* Work start time */}
           <div className="space-y-1.5">
-            <Label className="text-sm text-zinc-300">{t("attendance.workStartTime")}</Label>
+            <Label className="text-sm text-foreground">{t("attendance.workStartTime")}</Label>
             <Input
               type="time"
               value={form.workStartTime}
               onChange={(e) => setForm((f) => ({ ...f, workStartTime: e.target.value }))}
-              className="bg-zinc-800 border-zinc-700 text-white w-36"
+              className="w-36"
             />
           </div>
 
           {/* Grace period */}
           <div className="space-y-1.5">
-            <Label className="text-sm text-zinc-300">{t("attendance.graceMinutes")}</Label>
+            <Label className="text-sm text-foreground">{t("attendance.graceMinutes")}</Label>
             <div className="flex items-center gap-2">
               <Input
                 type="number"
@@ -561,17 +556,17 @@ function SettingsTab() {
                 max={120}
                 value={form.graceMinutes}
                 onChange={(e) => setForm((f) => ({ ...f, graceMinutes: Number(e.target.value) }))}
-                className="bg-zinc-800 border-zinc-700 text-white w-24"
+                className="w-24"
               />
-              <span className="text-zinc-500 text-sm">{t("attendance.minutes")}</span>
+              <span className="text-muted-foreground text-sm">{t("attendance.minutes")}</span>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card>
         <CardHeader className="pb-3 pt-4">
-          <CardTitle className="text-sm flex items-center gap-2 text-zinc-200">
+          <CardTitle className="text-sm flex items-center gap-2 text-foreground">
             <MapPin size={15} />
             {t("attendance.locationSettings")}
           </CardTitle>
@@ -579,36 +574,33 @@ function SettingsTab() {
         <CardContent className="space-y-4 pb-5">
           {/* Location name */}
           <div className="space-y-1.5">
-            <Label className="text-sm text-zinc-300">{t("attendance.locationName")}</Label>
+            <Label className="text-sm text-foreground">{t("attendance.locationName")}</Label>
             <Input
               value={form.locationName}
               onChange={(e) => setForm((f) => ({ ...f, locationName: e.target.value }))}
-              className="bg-zinc-800 border-zinc-700 text-white"
             />
           </div>
 
           {/* Lat / Lng */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-sm text-zinc-300">{t("attendance.latitude")}</Label>
+              <Label className="text-sm text-foreground">{t("attendance.latitude")}</Label>
               <Input
                 type="number"
                 step="any"
                 placeholder="24.000000"
                 value={form.locationLat}
                 onChange={(e) => setForm((f) => ({ ...f, locationLat: e.target.value }))}
-                className="bg-zinc-800 border-zinc-700 text-white"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm text-zinc-300">{t("attendance.longitude")}</Label>
+              <Label className="text-sm text-foreground">{t("attendance.longitude")}</Label>
               <Input
                 type="number"
                 step="any"
                 placeholder="46.000000"
                 value={form.locationLng}
                 onChange={(e) => setForm((f) => ({ ...f, locationLng: e.target.value }))}
-                className="bg-zinc-800 border-zinc-700 text-white"
               />
             </div>
           </div>
@@ -619,7 +611,7 @@ function SettingsTab() {
             size="sm"
             onClick={captureMyLocation}
             disabled={locating}
-            className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 gap-2"
+            className="gap-2"
           >
             {locating ? <Loader2 size={13} className="animate-spin" /> : <Navigation size={13} />}
             {t("attendance.captureMyLocation")}
@@ -627,7 +619,7 @@ function SettingsTab() {
 
           {/* Radius */}
           <div className="space-y-1.5">
-            <Label className="text-sm text-zinc-300">{t("attendance.radiusMeters")}</Label>
+            <Label className="text-sm text-foreground">{t("attendance.radiusMeters")}</Label>
             <div className="flex items-center gap-2">
               <Input
                 type="number"
@@ -637,11 +629,11 @@ function SettingsTab() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, locationRadiusMeters: Number(e.target.value) }))
                 }
-                className="bg-zinc-800 border-zinc-700 text-white w-28"
+                className="w-28"
               />
-              <span className="text-zinc-500 text-sm">{t("attendance.meters")}</span>
+              <span className="text-muted-foreground text-sm">{t("attendance.meters")}</span>
             </div>
-            <p className="text-xs text-zinc-600">
+            <p className="text-xs text-muted-foreground">
               {t("attendance.radiusHint")}
             </p>
           </div>
@@ -661,23 +653,23 @@ function SettingsTab() {
       </Button>
 
       {/* ── Worker Attendance Rules ─────────────────────────────── */}
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card>
         <CardHeader className="pb-3 pt-4">
-          <CardTitle className="text-sm flex items-center gap-2 text-zinc-200">
+          <CardTitle className="text-sm flex items-center gap-2 text-foreground">
             <UserCog size={15} />
             {t("attendance.workerRules")}
           </CardTitle>
-          <p className="text-xs text-zinc-500 mt-0.5">{t("attendance.workerRulesHint")}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{t("attendance.workerRulesHint")}</p>
         </CardHeader>
         <CardContent className="space-y-3 pb-5">
           {workersLoading ? (
             <div className="space-y-2">
               {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className="h-12 bg-zinc-800" />
+                <Skeleton key={i} className="h-12" />
               ))}
             </div>
           ) : activeWorkers.length === 0 ? (
-            <p className="text-sm text-zinc-500">{t("attendance.noWorkers")}</p>
+            <p className="text-sm text-muted-foreground">{t("attendance.noWorkers")}</p>
           ) : (
             activeWorkers.map((worker) => {
               const currentMode =
@@ -687,10 +679,10 @@ function SettingsTab() {
                   key={worker.id}
                   className="flex items-center justify-between gap-3 py-2"
                 >
-                  <span className="text-sm text-white font-medium truncate min-w-0 flex-1">
+                  <span className="text-sm text-foreground font-medium truncate min-w-0 flex-1">
                     {worker.name}
                   </span>
-                  <div className="flex items-center rounded-lg overflow-hidden border border-zinc-700 shrink-0">
+                  <div className="flex items-center rounded-lg overflow-hidden border border-border shrink-0">
                     {modeOptions.map((opt) => {
                       const isActive = currentMode === opt.value;
                       return (
@@ -700,11 +692,11 @@ function SettingsTab() {
                           className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${
                             isActive
                               ? opt.value === "exempt"
-                                ? "bg-zinc-600 text-white"
+                                ? "bg-muted text-foreground"
                                 : opt.value === "optional"
-                                ? "bg-blue-700 text-white"
-                                : "bg-green-700 text-white"
-                              : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
+                                ? "bg-blue-600 text-white"
+                                : "bg-green-600 text-white"
+                              : "bg-background text-muted-foreground hover:bg-muted"
                           }`}
                         >
                           {opt.label}
@@ -728,21 +720,21 @@ export default function AttendancePage() {
   return (
     <div className="space-y-4 pb-6">
       <div>
-        <h1 className="text-xl font-bold text-white">{t("attendance.title")}</h1>
-        <p className="text-zinc-400 text-sm mt-0.5">{t("attendance.subtitle")}</p>
+        <h1 className="text-xl font-bold text-foreground">{t("attendance.title")}</h1>
+        <p className="text-muted-foreground text-sm mt-0.5">{t("attendance.subtitle")}</p>
       </div>
 
       <Tabs defaultValue="today">
-        <TabsList className="bg-zinc-900 border border-zinc-800 w-full grid grid-cols-3">
-          <TabsTrigger value="today" className="gap-1.5 data-[state=active]:bg-zinc-800">
+        <TabsList className="w-full grid grid-cols-3">
+          <TabsTrigger value="today" className="gap-1.5">
             <Users size={13} />
             {t("attendance.tabToday")}
           </TabsTrigger>
-          <TabsTrigger value="history" className="gap-1.5 data-[state=active]:bg-zinc-800">
+          <TabsTrigger value="history" className="gap-1.5">
             <History size={13} />
             {t("attendance.tabHistory")}
           </TabsTrigger>
-          <TabsTrigger value="settings" className="gap-1.5 data-[state=active]:bg-zinc-800">
+          <TabsTrigger value="settings" className="gap-1.5">
             <Settings2 size={13} />
             {t("attendance.tabSettings")}
           </TabsTrigger>
