@@ -35,6 +35,8 @@ export interface Worker {
   /** Workshop equity share (informational) */
   equityPercent: number;
   active: boolean;
+  /** required | optional | exempt */
+  attendanceMode?: string;
   createdAt?: string;
 }
 
@@ -183,8 +185,6 @@ export interface Job {
   expenseLines?: JobExpenseLine[];
   workerShares?: JobWorkerShare[];
   occurredAt: string;
-  status?: "approved" | "pending" | "rejected";
-  submittedByWorkerId?: number | null;
 }
 
 /**
@@ -236,8 +236,6 @@ export interface CreateJobBody {
   expenseLines?: CreateJobBodyExpenseLinesItem[];
   notes?: string;
   occurredAt?: string;
-  /** Override the worker revenue share % for this job (0-100). */
-  workerPercentOverride?: number;
 }
 
 export type ExpensePaidWith =
@@ -427,6 +425,94 @@ export interface CreateJobAttachmentBody {
   mimetype: string;
 }
 
+export interface CreateWorkerDebtBody {
+  amount: number;
+  description: string;
+  occurredAt?: string | null;
+}
+
+export interface UpdateWorkerDebtBody {
+  amount?: number;
+  description?: string;
+  collected?: boolean;
+  occurredAt?: string | null;
+}
+
+export interface CreateWorkerTransferBody {
+  fromWorkerId: number;
+  toWorkerId: number;
+  amount: number;
+  note?: string | null;
+  occurredAt?: string | null;
+}
+
+export interface AttendanceSettings {
+  id: number;
+  isActive: boolean;
+  /** HH:MM format, e.g. 08:00 */
+  workStartTime: string;
+  graceMinutes: number;
+  locationName: string;
+  locationLat?: number | null;
+  locationLng?: number | null;
+  locationRadiusMeters: number;
+  updatedAt: string;
+}
+
+export interface UpdateAttendanceSettingsBody {
+  isActive?: boolean;
+  workStartTime?: string;
+  graceMinutes?: number;
+  locationName?: string;
+  locationLat?: number | null;
+  locationLng?: number | null;
+  locationRadiusMeters?: number;
+}
+
+export interface CheckInBody {
+  lat?: number | null;
+  lng?: number | null;
+}
+
+export type AttendanceRecordStatus =
+  (typeof AttendanceRecordStatus)[keyof typeof AttendanceRecordStatus];
+
+export const AttendanceRecordStatus = {
+  "on-time": "on-time",
+  late: "late",
+  "outside-zone": "outside-zone",
+  present: "present",
+} as const;
+
+export interface AttendanceRecord {
+  id: number;
+  workerId: number;
+  workerName?: string;
+  checkDate: string;
+  checkInAt: string;
+  lat?: number | null;
+  lng?: number | null;
+  distanceMeters?: number | null;
+  isWithinZone?: boolean | null;
+  status: AttendanceRecordStatus;
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface WorkerTodayStatus {
+  workerId: number;
+  workerName: string;
+  hasCheckedIn: boolean;
+  /** required | optional | exempt */
+  attendanceMode: string;
+  record?: AttendanceRecord | null;
+}
+
+export interface UpdateWorkerAttendanceModeBody {
+  /** required | optional | exempt */
+  mode: string;
+}
+
 export type GetWorkerLedgerParams = {
   /**
    * Filter start date (inclusive)
@@ -442,7 +528,6 @@ export type ListJobsParams = {
   workerId?: number;
   from?: string;
   to?: string;
-  status?: "approved" | "pending" | "rejected" | "all";
 };
 
 export type UpdateJobExpensesBodyExpenseLinesItem = {
@@ -514,3 +599,9 @@ export const GetTimeseriesPeriod = {
   month: "month",
   all: "all",
 } as const;
+
+export type ListAttendanceRecordsParams = {
+  from?: string;
+  to?: string;
+  workerId?: number;
+};
