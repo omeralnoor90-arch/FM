@@ -8,6 +8,7 @@ import {
   useListAttendanceRecords,
   useListWorkers,
   useUpdateWorkerAttendanceMode,
+  useGetFailedCheckInAttempts,
   getGetAttendanceSettingsQueryKey,
   getListWorkersQueryKey,
 } from "@workspace/api-client-react";
@@ -33,6 +34,7 @@ import {
   Loader2,
   Navigation,
   UserCog,
+  AlertOctagon,
 } from "lucide-react";
 
 function StatusBadge({ status }: { status: string }) {
@@ -107,6 +109,10 @@ function TodayTab() {
   const { data: todayList, isLoading } = useGetTodayAttendance({
     query: { refetchInterval: 30000 },
   });
+  const { data: failedAttempts } = useGetFailedCheckInAttempts(
+    {},
+    { query: { refetchInterval: 30000 } }
+  );
 
   if (isLoading)
     return (
@@ -131,6 +137,42 @@ function TodayTab() {
 
   return (
     <div className="space-y-4">
+      {/* ── Failed check-in alerts ── */}
+      {failedAttempts && failedAttempts.length > 0 && (
+        <Card className="border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
+          <CardContent className="pt-4 pb-4 space-y-2">
+            <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-semibold text-sm">
+              <AlertOctagon size={15} />
+              {t("attendance.failedAttempts")} ({failedAttempts.length})
+            </div>
+            {failedAttempts.map((a) => (
+              <div
+                key={a.id}
+                className="flex items-center justify-between gap-3 rounded-md bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <span className="text-sm font-medium text-foreground">{a.workerName}</span>
+                  <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                    <span>{format(new Date(a.attemptedAt), "HH:mm")}</span>
+                    {a.distanceMeters != null && (
+                      <span className="flex items-center gap-0.5">
+                        <MapPin size={9} />
+                        {a.distanceMeters}m
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <span className="text-xs font-medium text-red-700 dark:text-red-400 shrink-0">
+                  {a.reason === "location_denied"
+                    ? t("attendance.reasonLocationDenied")
+                    : t("attendance.reasonOutsideZone")}
+                </span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* ── Summary ── */}
       <div className="grid grid-cols-3 gap-2">
         <Card className="border-l-4 border-l-green-500">
