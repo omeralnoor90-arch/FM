@@ -598,6 +598,8 @@
     "systemActiveHint": "When enabled, workers are required to check in from the specified location",
     "systemOffWarningTitle": "Location enforcement is OFF",
     "systemOffWarningDesc": "Workers can check in from anywhere right now. Turn on the toggle above and save to enforce the zone.",
+    "locationNotConfiguredTitle": "Workshop location not set",
+    "locationNotConfiguredDesc": "The admin hasn't set the workshop location yet. Contact your manager.",
     "workStartTime": "Work Start Time",
     "graceMinutes": "Grace Period",
     "minutes": "minutes",
