@@ -621,6 +621,13 @@
     "historyTitle": "سجل الحضور",
     "noHistory": "لا توجد سجلات حضور بعد",
     "checkInFailed": "فشل تسجيل الحضور. حاول مرة أخرى.",
-    "checkingInWithoutLocation": "جاري تسجيل الحضور بدون موقع"
+    "checkingInWithoutLocation": "جاري تسجيل الحضور بدون موقع",
+    "saveFailed": "فشل الحفظ",
+    "workerRules": "قواعد حضور العمال",
+    "workerRulesHint": "حدد من يجب حضوره، من يمكنه الحضور اختيارياً، ومن هو معفى",
+    "modeRequired": "إلزامي",
+    "modeOptional": "اختياري",
+    "modeExempt": "معفى",
+    "noWorkers": "لا يوجد عمال نشطون"
   }
 }
