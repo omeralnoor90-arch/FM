@@ -488,6 +488,28 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/AttendanceSettings" }
 
+  /attendance/workers/{id}/mode:
+    put:
+      operationId: updateWorkerAttendanceMode
+      tags: [attendance]
+      summary: Set a worker's attendance mode (admin/manager)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateWorkerAttendanceModeBody" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Worker" }
+
   /attendance/check-in:
     post:
       operationId: checkIn
@@ -607,6 +629,7 @@ components:
         workshopPercent: { type: number, description: "% going to workshop" }
         equityPercent: { type: number, description: "Workshop equity share (informational)" }
         active: { type: boolean }
+        attendanceMode: { type: string, description: "required | optional | exempt" }
         createdAt: { type: string, format: date-time }
 
     WorkerDetail:
@@ -987,9 +1010,16 @@ components:
 
     WorkerTodayStatus:
       type: object
-      required: [workerId, workerName, hasCheckedIn]
+      required: [workerId, workerName, hasCheckedIn, attendanceMode]
       properties:
         workerId: { type: integer }
         workerName: { type: string }
         hasCheckedIn: { type: boolean }
+        attendanceMode: { type: string, description: "required | optional | exempt" }
         record: { $ref: "#/components/schemas/AttendanceRecord", nullable: true }
+
+    UpdateWorkerAttendanceModeBody:
+      type: object
+      required: [mode]
+      properties:
+        mode: { type: string, description: "required | optional | exempt" }
