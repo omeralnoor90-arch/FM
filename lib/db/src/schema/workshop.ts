@@ -251,3 +251,16 @@ export const attendanceRecordsTable = pgTable("attendance_records", {
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const failedCheckInAttemptsTable = pgTable("failed_check_in_attempts", {
+  id: serial("id").primaryKey(),
+  workerId: integer("worker_id")
+    .notNull()
+    .references(() => workersTable.id, { onDelete: "cascade" }),
+  checkDate: date("check_date").notNull(),
+  attemptedAt: timestamp("attempted_at", { withTimezone: true }).notNull().defaultNow(),
+  reason: text("reason").notNull(),
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
+  distanceMeters: integer("distance_meters"),
+});
