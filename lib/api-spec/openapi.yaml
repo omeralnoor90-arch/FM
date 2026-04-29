@@ -14,6 +14,7 @@ tags:
   - name: parts
   - name: settings
   - name: analytics
+  - name: attendance
   - name: Storage
     description: Object storage upload and serving endpoints.
 paths:
@@ -460,6 +461,116 @@ paths:
         "204":
           description: Deleted
 
+  /attendance/settings:
+    get:
+      operationId: getAttendanceSettings
+      tags: [attendance]
+      summary: Get attendance settings (admin/manager)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AttendanceSettings" }
+    put:
+      operationId: updateAttendanceSettings
+      tags: [attendance]
+      summary: Update attendance settings (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateAttendanceSettingsBody" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AttendanceSettings" }
+
+  /attendance/check-in:
+    post:
+      operationId: checkIn
+      tags: [attendance]
+      summary: Worker checks in with their location
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CheckInBody" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AttendanceRecord" }
+
+  /attendance/today:
+    get:
+      operationId: getTodayAttendance
+      tags: [attendance]
+      summary: Get all workers attendance for today (admin/manager)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WorkerTodayStatus" }
+
+  /attendance/records:
+    get:
+      operationId: listAttendanceRecords
+      tags: [attendance]
+      summary: List attendance records with optional date range filter (admin/manager)
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+        - name: workerId
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AttendanceRecord" }
+
+  /attendance/my-today:
+    get:
+      operationId: getMyTodayAttendance
+      tags: [attendance]
+      summary: Get current worker's attendance record for today
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AttendanceRecord" }
+        "404":
+          description: No record yet today
+
+  /attendance/my-records:
+    get:
+      operationId: listMyAttendanceRecords
+      tags: [attendance]
+      summary: Get current worker's attendance history
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AttendanceRecord" }
+
 components:
   schemas:
     HealthStatus:
@@ -799,3 +910,86 @@ components:
         objectPath: { type: string }
         originalName: { type: string }
         mimetype: { type: string }
+
+    CreateWorkerDebtBody:
+      type: object
+      required: [amount, description]
+      properties:
+        amount: { type: number }
+        description: { type: string }
+        occurredAt: { type: string, format: date-time, nullable: true }
+
+    UpdateWorkerDebtBody:
+      type: object
+      properties:
+        amount: { type: number }
+        description: { type: string }
+        collected: { type: boolean }
+        occurredAt: { type: string, format: date-time, nullable: true }
+
+    CreateWorkerTransferBody:
+      type: object
+      required: [fromWorkerId, toWorkerId, amount]
+      properties:
+        fromWorkerId: { type: integer }
+        toWorkerId: { type: integer }
+        amount: { type: number }
+        note: { type: string, nullable: true }
+        occurredAt: { type: string, format: date-time, nullable: true }
+
+    AttendanceSettings:
+      type: object
+      required: [id, isActive, workStartTime, graceMinutes, locationName, locationRadiusMeters, updatedAt]
+      properties:
+        id: { type: integer }
+        isActive: { type: boolean }
+        workStartTime: { type: string, description: "HH:MM format, e.g. 08:00" }
+        graceMinutes: { type: integer }
+        locationName: { type: string }
+        locationLat: { type: number, nullable: true }
+        locationLng: { type: number, nullable: true }
+        locationRadiusMeters: { type: integer }
+        updatedAt: { type: string, format: date-time }
+
+    UpdateAttendanceSettingsBody:
+      type: object
+      properties:
+        isActive: { type: boolean }
+        workStartTime: { type: string }
+        graceMinutes: { type: integer }
+        locationName: { type: string }
+        locationLat: { type: number, nullable: true }
+        locationLng: { type: number, nullable: true }
+        locationRadiusMeters: { type: integer }
+
+    CheckInBody:
+      type: object
+      properties:
+        lat: { type: number, nullable: true }
+        lng: { type: number, nullable: true }
+
+    AttendanceRecord:
+      type: object
+      required: [id, workerId, checkDate, checkInAt, status, createdAt]
+      properties:
+        id: { type: integer }
+        workerId: { type: integer }
+        workerName: { type: string }
+        checkDate: { type: string, format: date }
+        checkInAt: { type: string, format: date-time }
+        lat: { type: number, nullable: true }
+        lng: { type: number, nullable: true }
+        distanceMeters: { type: integer, nullable: true }
+        isWithinZone: { type: boolean, nullable: true }
+        status: { type: string, enum: [on-time, late, outside-zone, present] }
+        notes: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    WorkerTodayStatus:
+      type: object
+      required: [workerId, workerName, hasCheckedIn]
+      properties:
+        workerId: { type: integer }
+        workerName: { type: string }
+        hasCheckedIn: { type: boolean }
+        record: { $ref: "#/components/schemas/AttendanceRecord", nullable: true }
