@@ -142,6 +142,7 @@ paths:
         - { name: workerId, in: query, schema: { type: integer } }
         - { name: from, in: query, schema: { type: string, format: date } }
         - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: status, in: query, schema: { type: string, enum: [approved, pending, rejected, all] } }
       responses:
         "200":
           description: OK
