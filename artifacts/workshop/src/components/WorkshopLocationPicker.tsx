@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Circle, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -41,6 +41,70 @@ function RecenterMap({ lat, lng }: { lat: number; lng: number }) {
   return null;
 }
 
+function LocateMeButton({ onChange }: { onChange: (lat: number, lng: number) => void }) {
+  const map = useMap();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  function locate() {
+    if (!navigator.geolocation) return;
+    setLoading(true);
+    setError(false);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        onChange(latitude, longitude);
+        map.flyTo([latitude, longitude], 17, { duration: 1 });
+        setLoading(false);
+      },
+      () => {
+        setLoading(false);
+        setError(true);
+        setTimeout(() => setError(false), 3000);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  return (
+    <button
+      onClick={locate}
+      title={error ? "Location access denied" : "Go to my location"}
+      style={{
+        position: "absolute",
+        bottom: 24,
+        right: 12,
+        zIndex: 1000,
+        background: error ? "#ef4444" : "#fff",
+        border: "2px solid rgba(0,0,0,0.2)",
+        borderRadius: 8,
+        width: 36,
+        height: 36,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        boxShadow: "0 2px 6px rgba(0,0,0,0.18)",
+        transition: "background 0.2s",
+      }}
+    >
+      {loading ? (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={error ? "#fff" : "#333"} strokeWidth="2">
+          <circle cx="12" cy="12" r="10" strokeDasharray="60" strokeDashoffset="20">
+            <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite" />
+          </circle>
+        </svg>
+      ) : (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={error ? "#fff" : "#333"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+          <circle cx="12" cy="12" r="8" strokeDasharray="4 4" strokeOpacity="0.4" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 const DEFAULT_LAT = 24.7136;
 const DEFAULT_LNG = 46.6753;
 
@@ -50,7 +114,7 @@ export default function WorkshopLocationPicker({ lat, lng, radius, onChange }: P
   const centerLng = hasPin ? lng! : DEFAULT_LNG;
 
   return (
-    <div className="rounded-xl overflow-hidden border border-border shadow-sm" style={{ height: 360 }}>
+    <div className="rounded-xl overflow-hidden border border-border shadow-sm" style={{ height: 360, position: "relative" }}>
       <MapContainer
         center={[centerLat, centerLng]}
         zoom={16}
@@ -88,7 +152,31 @@ export default function WorkshopLocationPicker({ lat, lng, radius, onChange }: P
             />
           </>
         )}
+        <LocateMeButton onChange={onChange} />
       </MapContainer>
+
+      {/* Hint overlay when no pin is set */}
+      {!hasPin && (
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            background: "rgba(0,0,0,0.6)",
+            color: "#fff",
+            padding: "8px 14px",
+            borderRadius: 8,
+            fontSize: 13,
+            fontWeight: 500,
+            pointerEvents: "none",
+            zIndex: 1000,
+            whiteSpace: "nowrap",
+          }}
+        >
+          Click the map to place the workshop pin
+        </div>
+      )}
     </div>
   );
 }
