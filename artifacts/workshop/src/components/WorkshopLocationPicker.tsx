@@ -31,11 +31,14 @@ function RecenterMap({ lat, lng }: { lat: number; lng: number }) {
   const prevRef = useRef<{ lat: number; lng: number } | null>(null);
   useEffect(() => {
     const prev = prevRef.current;
-    if (!prev || (prev.lat === lat && prev.lng === lng)) {
-      prevRef.current = { lat, lng };
+    prevRef.current = { lat, lng };
+    if (!prev) {
+      // First mount — settings just loaded; jump instantly to the saved location
+      map.setView([lat, lng], 16, { animate: false });
       return;
     }
-    prevRef.current = { lat, lng };
+    if (prev.lat === lat && prev.lng === lng) return;
+    // User moved the pin — smooth animation
     map.flyTo([lat, lng], map.getZoom(), { duration: 0.6 });
   }, [lat, lng, map]);
   return null;
