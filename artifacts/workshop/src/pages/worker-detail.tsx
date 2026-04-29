@@ -142,7 +142,7 @@ export default function WorkerDetail() {
   const [payByWorkerId, setPayByWorkerId] = useState<string>("");
 
   const { data: settings } = useGetSettings();
-  const currency = settings?.currency || "USD";
+  const currency = settings?.currency || "SAR";
 
   const invalidateLedger = () => {
     queryClient.invalidateQueries({
