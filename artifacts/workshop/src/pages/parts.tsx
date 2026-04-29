@@ -258,7 +258,7 @@ export default function Parts() {
     }
   };
 
-  const currency = settings?.currency || "USD";
+  const currency = settings?.currency || "SAR";
 
   const PaidWithBadge = ({ paidWith }: { paidWith: string }) =>
     paidWith === "card" ? (
