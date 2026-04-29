@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -6,9 +6,10 @@ import {
   useUpdateAttendanceSettings,
   useGetTodayAttendance,
   useListAttendanceRecords,
+  useListWorkers,
+  useUpdateWorkerAttendanceMode,
   getGetAttendanceSettingsQueryKey,
-  getGetTodayAttendanceQueryKey,
-  getListAttendanceRecordsQueryKey,
+  getListWorkersQueryKey,
 } from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +32,7 @@ import {
   AlertTriangle,
   Loader2,
   Navigation,
+  UserCog,
 } from "lucide-react";
 
 function StatusBadge({ status }: { status: string }) {
@@ -223,11 +225,35 @@ function SettingsTab() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { data: settings, isLoading } = useGetAttendanceSettings();
+  const { data: workers, isLoading: workersLoading } = useListWorkers();
+
   const updateMutation = useUpdateAttendanceSettings({
     mutation: {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: getGetAttendanceSettingsQueryKey() });
         toast({ title: t("attendance.settingsSaved") });
+      },
+      onError: (err) => {
+        toast({
+          title: t("attendance.saveFailed"),
+          description: err instanceof Error ? err.message : String(err),
+          variant: "destructive",
+        });
+      },
+    },
+  });
+
+  const modeMutation = useUpdateWorkerAttendanceMode({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListWorkersQueryKey() });
+      },
+      onError: (err) => {
+        toast({
+          title: t("attendance.saveFailed"),
+          description: err instanceof Error ? err.message : String(err),
+          variant: "destructive",
+        });
       },
     },
   });
@@ -242,9 +268,8 @@ function SettingsTab() {
     locationRadiusMeters: 200,
   });
 
-  const [initialized, setInitialized] = useState(false);
-  if (settings && !initialized) {
-    setInitialized(true);
+  useEffect(() => {
+    if (!settings) return;
     setForm({
       isActive: settings.isActive,
       workStartTime: settings.workStartTime,
@@ -254,7 +279,7 @@ function SettingsTab() {
       locationLng: settings.locationLng != null ? String(settings.locationLng) : "",
       locationRadiusMeters: settings.locationRadiusMeters,
     });
-  }
+  }, [settings]);
 
   const [locating, setLocating] = useState(false);
 
@@ -292,6 +317,16 @@ function SettingsTab() {
     });
   }
 
+  function setWorkerMode(workerId: number, mode: string) {
+    modeMutation.mutate({ id: workerId, data: { mode } });
+  }
+
+  const modeOptions = [
+    { value: "required", label: t("attendance.modeRequired") },
+    { value: "optional", label: t("attendance.modeOptional") },
+    { value: "exempt", label: t("attendance.modeExempt") },
+  ];
+
   if (isLoading)
     return (
       <div className="space-y-3">
@@ -300,6 +335,8 @@ function SettingsTab() {
         ))}
       </div>
     );
+
+  const activeWorkers = workers?.filter((w) => w.active) ?? [];
 
   return (
     <div className="space-y-5">
@@ -431,12 +468,73 @@ function SettingsTab() {
         onClick={save}
         disabled={updateMutation.isPending}
         className="w-full"
+        style={{ background: "#FF3C00", color: "#fff" }}
       >
         {updateMutation.isPending ? (
           <Loader2 size={14} className="animate-spin me-2" />
         ) : null}
         {t("attendance.saveSettings")}
       </Button>
+
+      {/* ── Worker Attendance Rules ─────────────────────────────── */}
+      <Card className="bg-zinc-900 border-zinc-800">
+        <CardHeader className="pb-3 pt-4">
+          <CardTitle className="text-sm flex items-center gap-2 text-zinc-200">
+            <UserCog size={15} />
+            {t("attendance.workerRules")}
+          </CardTitle>
+          <p className="text-xs text-zinc-500 mt-0.5">{t("attendance.workerRulesHint")}</p>
+        </CardHeader>
+        <CardContent className="space-y-3 pb-5">
+          {workersLoading ? (
+            <div className="space-y-2">
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-12 bg-zinc-800" />
+              ))}
+            </div>
+          ) : activeWorkers.length === 0 ? (
+            <p className="text-sm text-zinc-500">{t("attendance.noWorkers")}</p>
+          ) : (
+            activeWorkers.map((worker) => {
+              const currentMode = worker.attendanceMode ?? "required";
+              return (
+                <div
+                  key={worker.id}
+                  className="flex items-center justify-between gap-3 py-2"
+                >
+                  <span className="text-sm text-white font-medium truncate min-w-0 flex-1">
+                    {worker.name}
+                  </span>
+                  <div className="flex items-center rounded-lg overflow-hidden border border-zinc-700 shrink-0">
+                    {modeOptions.map((opt) => {
+                      const isActive = currentMode === opt.value;
+                      const isBusy = modeMutation.isPending;
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => !isBusy && setWorkerMode(worker.id, opt.value)}
+                          disabled={isBusy}
+                          className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                            isActive
+                              ? opt.value === "exempt"
+                                ? "bg-zinc-600 text-white"
+                                : opt.value === "optional"
+                                ? "bg-blue-700 text-white"
+                                : "bg-green-700 text-white"
+                              : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
