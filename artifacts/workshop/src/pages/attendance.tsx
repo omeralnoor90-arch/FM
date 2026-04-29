@@ -53,9 +53,16 @@ function StatusBadge({ status }: { status: string }) {
     );
   if (status === "outside-zone")
     return (
-      <Badge className="bg-red-900/40 text-red-400 border-red-700 gap-1">
+      <Badge className="bg-orange-900/40 text-orange-400 border-orange-700 gap-1">
         <AlertTriangle size={11} />
         {t("attendance.statusOutsideZone")}
+      </Badge>
+    );
+  if (status === "absent")
+    return (
+      <Badge className="bg-red-900/40 text-red-400 border-red-700 gap-1">
+        <XCircle size={11} />
+        {t("attendance.statusAbsent")}
       </Badge>
     );
   return (
@@ -65,6 +72,35 @@ function StatusBadge({ status }: { status: string }) {
     </Badge>
   );
 }
+
+function rowAccent(status: string) {
+  if (status === "on-time") return "border-l-green-500";
+  if (status === "late") return "border-l-yellow-500";
+  if (status === "outside-zone") return "border-l-orange-500";
+  if (status === "absent") return "border-l-red-600";
+  return "border-l-blue-500";
+}
+
+function dotColor(status: string) {
+  if (status === "on-time") return "bg-green-400";
+  if (status === "late") return "bg-yellow-400";
+  if (status === "outside-zone") return "bg-orange-400";
+  if (status === "absent") return "bg-red-500";
+  return "bg-blue-400";
+}
+
+function workerStatus(w: { hasCheckedIn: boolean; record?: { status: string } | null }) {
+  if (!w.hasCheckedIn) return "absent";
+  return w.record?.status ?? "present";
+}
+
+const STATUS_ORDER: Record<string, number> = {
+  "on-time": 0,
+  present: 1,
+  late: 2,
+  "outside-zone": 3,
+  absent: 4,
+};
 
 function TodayTab() {
   const { t } = useTranslation();
@@ -81,69 +117,130 @@ function TodayTab() {
       </div>
     );
 
-  const present = todayList?.filter((w) => w.hasCheckedIn) ?? [];
-  const absent = todayList?.filter((w) => !w.hasCheckedIn) ?? [];
+  const required = (todayList ?? [])
+    .filter((w) => !w.attendanceMode || w.attendanceMode === "required")
+    .sort((a, b) => (STATUS_ORDER[workerStatus(a)] ?? 9) - (STATUS_ORDER[workerStatus(b)] ?? 9));
+
+  const optional = (todayList ?? []).filter((w) => w.attendanceMode === "optional");
+
+  const onTimeCount = required.filter((w) => workerStatus(w) === "on-time").length;
+  const lateCount = required.filter(
+    (w) => workerStatus(w) === "late" || workerStatus(w) === "outside-zone" || workerStatus(w) === "present"
+  ).length;
+  const absentCount = required.filter((w) => !w.hasCheckedIn).length;
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-3">
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardContent className="pt-4 pb-4 text-center">
-            <div className="text-2xl font-bold text-white">{todayList?.length ?? 0}</div>
-            <div className="text-xs text-zinc-400 mt-0.5">{t("attendance.totalWorkers")}</div>
+      {/* ── Summary ── */}
+      <div className="grid grid-cols-3 gap-2">
+        <Card className="bg-zinc-900 border-zinc-800 border-l-4 border-l-green-500">
+          <CardContent className="pt-3 pb-3 text-center">
+            <div className="text-2xl font-bold text-green-400">{onTimeCount}</div>
+            <div className="text-xs text-zinc-400 mt-0.5">{t("attendance.statusOnTime")}</div>
           </CardContent>
         </Card>
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardContent className="pt-4 pb-4 text-center">
-            <div className="text-2xl font-bold text-green-400">{present.length}</div>
-            <div className="text-xs text-zinc-400 mt-0.5">{t("attendance.present")}</div>
+        <Card className="bg-zinc-900 border-zinc-800 border-l-4 border-l-yellow-500">
+          <CardContent className="pt-3 pb-3 text-center">
+            <div className="text-2xl font-bold text-yellow-400">{lateCount}</div>
+            <div className="text-xs text-zinc-400 mt-0.5">{t("attendance.statusLate")}</div>
           </CardContent>
         </Card>
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardContent className="pt-4 pb-4 text-center">
-            <div className="text-2xl font-bold text-red-400">{absent.length}</div>
-            <div className="text-xs text-zinc-400 mt-0.5">{t("attendance.absent")}</div>
+        <Card className="bg-zinc-900 border-zinc-800 border-l-4 border-l-red-600">
+          <CardContent className="pt-3 pb-3 text-center">
+            <div className="text-2xl font-bold text-red-400">{absentCount}</div>
+            <div className="text-xs text-zinc-400 mt-0.5">{t("attendance.statusAbsent")}</div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="space-y-2">
-        {todayList?.map((w) => (
-          <Card key={w.workerId} className="bg-zinc-900 border-zinc-800">
-            <CardContent className="py-3 px-4 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div
-                  className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                    w.hasCheckedIn ? "bg-green-400" : "bg-zinc-600"
-                  }`}
-                />
-                <span className="font-medium text-sm text-white truncate">{w.workerName}</span>
-              </div>
-              <div className="flex items-center gap-3 flex-shrink-0">
-                {w.hasCheckedIn && w.record ? (
-                  <>
-                    <span className="text-xs text-zinc-400">
-                      {format(new Date(w.record.checkInAt), "HH:mm")}
-                    </span>
-                    {w.record.distanceMeters != null && (
-                      <span className="text-xs text-zinc-500 flex items-center gap-1">
-                        <MapPin size={10} />
-                        {w.record.distanceMeters}m
+      {/* ── Required workers ── */}
+      <div className="space-y-1.5">
+        {required.map((w) => {
+          const st = workerStatus(w);
+          return (
+            <Card
+              key={w.workerId}
+              className={`bg-zinc-900 border-zinc-800 border-l-4 ${rowAccent(st)}`}
+            >
+              <CardContent className="py-3 px-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dotColor(st)}`} />
+                  <span className="font-medium text-sm text-white truncate">{w.workerName}</span>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {w.hasCheckedIn && w.record ? (
+                    <>
+                      <span className="text-xs text-zinc-400 font-mono">
+                        {format(new Date(w.record.checkInAt), "HH:mm")}
                       </span>
-                    )}
-                    <StatusBadge status={w.record.status} />
-                  </>
-                ) : (
-                  <Badge variant="outline" className="text-xs text-zinc-500 border-zinc-700">
-                    <XCircle size={11} className="mr-1" />
-                    {t("attendance.notCheckedIn")}
-                  </Badge>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                      {w.record.distanceMeters != null && (
+                        <span className="text-xs text-zinc-500 flex items-center gap-0.5">
+                          <MapPin size={10} />
+                          {w.record.distanceMeters}m
+                        </span>
+                      )}
+                      <StatusBadge status={w.record.status} />
+                    </>
+                  ) : (
+                    <StatusBadge status="absent" />
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
+
+      {/* ── Optional workers ── */}
+      {optional.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider px-1">
+            {t("attendance.optionalSection")}
+          </p>
+          {optional
+            .sort((a, b) => (STATUS_ORDER[workerStatus(a)] ?? 9) - (STATUS_ORDER[workerStatus(b)] ?? 9))
+            .map((w) => {
+              const st = workerStatus(w);
+              return (
+                <Card
+                  key={w.workerId}
+                  className={`bg-zinc-900/60 border-zinc-800 border-l-4 ${
+                    w.hasCheckedIn ? rowAccent(st) : "border-l-zinc-700"
+                  }`}
+                >
+                  <CardContent className="py-3 px-4 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                          w.hasCheckedIn ? dotColor(st) : "bg-zinc-600"
+                        }`}
+                      />
+                      <span
+                        className={`font-medium text-sm truncate ${
+                          w.hasCheckedIn ? "text-white" : "text-zinc-500"
+                        }`}
+                      >
+                        {w.workerName}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {w.hasCheckedIn && w.record ? (
+                        <>
+                          <span className="text-xs text-zinc-400 font-mono">
+                            {format(new Date(w.record.checkInAt), "HH:mm")}
+                          </span>
+                          <StatusBadge status={w.record.status} />
+                        </>
+                      ) : (
+                        <span className="text-xs text-zinc-600">{t("attendance.didNotAttend")}</span>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+        </div>
+      )}
     </div>
   );
 }
@@ -158,10 +255,51 @@ function HistoryTab() {
   });
   const [to, setTo] = useState(today);
 
-  const { data: records, isLoading } = useListAttendanceRecords(
+  const { data: records, isLoading: recordsLoading } = useListAttendanceRecords(
     { from, to },
     { query: { staleTime: 0 } }
   );
+  const { data: workers, isLoading: workersLoading } = useListWorkers();
+
+  const isLoading = recordsLoading || workersLoading;
+
+  const requiredWorkers = (workers ?? []).filter(
+    (w) => w.active && w.attendanceMode !== "exempt"
+  );
+
+  const groupedByDate = (() => {
+    if (!records || !workers) return [];
+
+    const dates = [...new Set(records.map((r) => r.checkDate))].sort().reverse();
+
+    return dates.map((date) => {
+      const dayRecords = records.filter((r) => r.checkDate === date);
+      const byWorker = new Map(dayRecords.map((r) => [r.workerId, r]));
+
+      const rows = requiredWorkers.map((w) => {
+        const rec = byWorker.get(w.id);
+        return {
+          workerId: w.id,
+          workerName: w.name,
+          attendanceMode: w.attendanceMode ?? "required",
+          record: rec ?? null,
+          status: rec ? rec.status : "absent",
+        };
+      });
+
+      rows.sort(
+        (a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9)
+      );
+
+      const onTime = rows.filter((r) => r.status === "on-time").length;
+      const late = rows.filter(
+        (r) => r.status === "late" || r.status === "outside-zone" || r.status === "present"
+      ).length;
+      const absent = rows.filter((r) => r.status === "absent").length;
+
+      return { date, rows, onTime, late, absent };
+    });
+  })();
 
   return (
     <div className="space-y-4">
@@ -187,32 +325,65 @@ function HistoryTab() {
             <Skeleton key={i} className="h-14 bg-zinc-800" />
           ))}
         </div>
-      ) : !records || records.length === 0 ? (
+      ) : groupedByDate.length === 0 ? (
         <Card className="bg-zinc-900 border-zinc-800">
           <CardContent className="pt-6 pb-6 text-center text-zinc-500 text-sm">
             {t("attendance.noRecords")}
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
-          {records.map((r) => (
-            <Card key={r.id} className="bg-zinc-900 border-zinc-800">
-              <CardContent className="py-3 px-4 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-medium text-sm text-white truncate">{r.workerName}</div>
-                  <div className="text-xs text-zinc-500 mt-0.5">
-                    {r.checkDate} · {format(new Date(r.checkInAt), "HH:mm")}
-                    {r.distanceMeters != null && (
-                      <span className="ms-2 flex items-center gap-1 inline-flex">
-                        <MapPin size={9} />
-                        {r.distanceMeters}m
-                      </span>
-                    )}
-                  </div>
+        <div className="space-y-5">
+          {groupedByDate.map(({ date, rows, onTime, late, absent }) => (
+            <div key={date} className="space-y-1.5">
+              {/* Date header with mini summary */}
+              <div className="flex items-center justify-between px-1">
+                <span className="text-sm font-semibold text-zinc-300">{date}</span>
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="text-green-400 font-medium">{onTime} ✓</span>
+                  {late > 0 && <span className="text-yellow-400 font-medium">{late} ⏰</span>}
+                  {absent > 0 && <span className="text-red-400 font-medium">{absent} ✗</span>}
                 </div>
-                <StatusBadge status={r.status} />
-              </CardContent>
-            </Card>
+              </div>
+
+              {/* Worker rows */}
+              {rows.map((r) => (
+                <Card
+                  key={r.workerId}
+                  className={`bg-zinc-900 border-zinc-800 border-l-4 ${rowAccent(r.status)}`}
+                >
+                  <CardContent className="py-2.5 px-4 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor(r.status)}`} />
+                      <span
+                        className={`font-medium text-sm truncate ${
+                          r.status === "absent" ? "text-zinc-500" : "text-white"
+                        }`}
+                      >
+                        {r.workerName}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {r.record ? (
+                        <>
+                          <span className="text-xs text-zinc-400 font-mono">
+                            {format(new Date(r.record.checkInAt), "HH:mm")}
+                          </span>
+                          {r.record.distanceMeters != null && (
+                            <span className="text-xs text-zinc-600 flex items-center gap-0.5">
+                              <MapPin size={9} />
+                              {r.record.distanceMeters}m
+                            </span>
+                          )}
+                          <StatusBadge status={r.record.status} />
+                        </>
+                      ) : (
+                        <StatusBadge status="absent" />
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           ))}
         </div>
       )}
