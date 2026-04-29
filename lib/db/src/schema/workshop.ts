@@ -6,6 +6,8 @@ import {
   boolean,
   timestamp,
   numeric,
+  date,
+  doublePrecision,
 } from "drizzle-orm/pg-core";
 
 export const settingsTable = pgTable("settings", {
@@ -220,4 +222,31 @@ export const partsTable = pgTable("parts", {
   occurredAt: timestamp("occurred_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+});
+export const attendanceSettingsTable = pgTable("attendance_settings", {
+  id: serial("id").primaryKey(),
+  isActive: boolean("is_active").notNull().default(false),
+  workStartTime: text("work_start_time").notNull().default("08:00"),
+  graceMinutes: integer("grace_minutes").notNull().default(15),
+  locationName: text("location_name").notNull().default("Workshop"),
+  locationLat: doublePrecision("location_lat"),
+  locationLng: doublePrecision("location_lng"),
+  locationRadiusMeters: integer("location_radius_meters").notNull().default(200),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const attendanceRecordsTable = pgTable("attendance_records", {
+  id: serial("id").primaryKey(),
+  workerId: integer("worker_id")
+    .notNull()
+    .references(() => workersTable.id, { onDelete: "cascade" }),
+  checkDate: date("check_date").notNull(),
+  checkInAt: timestamp("check_in_at", { withTimezone: true }).notNull().defaultNow(),
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
+  distanceMeters: integer("distance_meters"),
+  isWithinZone: boolean("is_within_zone"),
+  status: text("status").notNull().default("present"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
