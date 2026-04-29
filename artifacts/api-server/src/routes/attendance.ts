@@ -165,11 +165,40 @@ router.post("/attendance/check-in", async (req, res) => {
   }
 });
 
+// ── PUT /attendance/workers/:id/mode ─────────────────────────────────────────
+router.put("/attendance/workers/:id/mode", requireAdminOrManager, async (req, res) => {
+  try {
+    const workerId = Number(req.params.id);
+    const { mode } = req.body as { mode?: string };
+    const allowed = ["required", "optional", "exempt"];
+    if (!mode || !allowed.includes(mode)) {
+      res.status(400).json({ error: "mode must be one of: required, optional, exempt" });
+      return;
+    }
+    const [updated] = await db
+      .update(workersTable)
+      .set({ attendanceMode: mode })
+      .where(eq(workersTable.id, workerId))
+      .returning();
+    if (!updated) {
+      res.status(404).json({ error: "Worker not found" });
+      return;
+    }
+    res.json(updated);
+  } catch (e) {
+    req.log.error(e);
+    res.status(500).json({ error: "Failed to update attendance mode" });
+  }
+});
+
 // ── GET /attendance/today ─────────────────────────────────────────────────────
 router.get("/attendance/today", requireAdminOrManager, async (req, res) => {
   try {
     const today = new Date().toISOString().slice(0, 10);
-    const workers = await db.select().from(workersTable).where(eq(workersTable.active, true));
+    const workers = await db
+      .select()
+      .from(workersTable)
+      .where(and(eq(workersTable.active, true)));
     const records = await db
       .select()
       .from(attendanceRecordsTable)
@@ -177,15 +206,18 @@ router.get("/attendance/today", requireAdminOrManager, async (req, res) => {
 
     const recordByWorker = new Map(records.map((r) => [r.workerId, r]));
 
-    const result = workers.map((w) => {
-      const record = recordByWorker.get(w.id);
-      return {
-        workerId: w.id,
-        workerName: w.name,
-        hasCheckedIn: !!record,
-        record: record ? { ...record, workerName: w.name } : null,
-      };
-    });
+    const result = workers
+      .filter((w) => w.attendanceMode !== "exempt")
+      .map((w) => {
+        const record = recordByWorker.get(w.id);
+        return {
+          workerId: w.id,
+          workerName: w.name,
+          attendanceMode: w.attendanceMode,
+          hasCheckedIn: !!record,
+          record: record ? { ...record, workerName: w.name } : null,
+        };
+      });
 
     res.json(result);
   } catch (e) {
