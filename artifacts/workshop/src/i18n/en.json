@@ -596,6 +596,8 @@
     "statusPresent": "Present",
     "systemActive": "Attendance System Active",
     "systemActiveHint": "When enabled, workers are required to check in from the specified location",
+    "systemOffWarningTitle": "Location enforcement is OFF",
+    "systemOffWarningDesc": "Workers can check in from anywhere right now. Turn on the toggle above and save to enforce the zone.",
     "workStartTime": "Work Start Time",
     "graceMinutes": "Grace Period",
     "minutes": "minutes",
