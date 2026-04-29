@@ -594,6 +594,24 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/AttendanceRecord" }
 
+  /attendance/failed-attempts:
+    get:
+      operationId: getFailedCheckInAttempts
+      tags: [attendance]
+      summary: Get failed check-in attempts for today (admin/manager)
+      parameters:
+        - name: date
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/FailedCheckInAttempt" }
+
 components:
   schemas:
     HealthStatus:
@@ -1024,3 +1042,17 @@ components:
       required: [mode]
       properties:
         mode: { type: string, description: "required | optional | exempt" }
+
+    FailedCheckInAttempt:
+      type: object
+      required: [id, workerId, workerName, checkDate, attemptedAt, reason]
+      properties:
+        id: { type: integer }
+        workerId: { type: integer }
+        workerName: { type: string }
+        checkDate: { type: string, format: date }
+        attemptedAt: { type: string, format: date-time }
+        reason: { type: string, description: "location_denied | outside_zone" }
+        lat: { type: number, nullable: true }
+        lng: { type: number, nullable: true }
+        distanceMeters: { type: integer, nullable: true }
