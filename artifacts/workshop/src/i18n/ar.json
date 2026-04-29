@@ -628,6 +628,9 @@
     "modeRequired": "إلزامي",
     "modeOptional": "اختياري",
     "modeExempt": "معفى",
-    "noWorkers": "لا يوجد عمال نشطون"
+    "noWorkers": "لا يوجد عمال نشطون",
+    "statusAbsent": "غائب",
+    "optionalSection": "الحضور الاختياري",
+    "didNotAttend": "لم يحضر"
   }
 }
