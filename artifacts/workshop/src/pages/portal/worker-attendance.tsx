@@ -32,6 +32,7 @@ type CheckInError =
   | { kind: "outside_zone"; distanceMeters: number; radiusMeters: number }
   | { kind: "geo_unavailable" }
   | { kind: "geo_denied" }
+  | { kind: "location_not_configured" }
   | { kind: "unknown" };
 
 function StatusCard({ status, checkInAt, distanceMeters }: {
@@ -113,6 +114,10 @@ function ErrorCard({ error, onRetry }: { error: CheckInError; onRetry: () => voi
       distance: error.distanceMeters,
       radius: error.radiusMeters,
     });
+  } else if (error.kind === "location_not_configured") {
+    icon = <AlertTriangle size={32} className="text-yellow-500" />;
+    title = t("attendance.locationNotConfiguredTitle");
+    desc = t("attendance.locationNotConfiguredDesc");
   } else {
     icon = <XCircle size={32} className="text-red-500" />;
     title = t("attendance.checkInFailed");
@@ -161,6 +166,8 @@ function CheckInButton({ onError }: { onError: (e: CheckInError) => void }) {
             distanceMeters: body.distanceMeters ?? 0,
             radiusMeters: body.radiusMeters ?? 0,
           });
+        } else if (body?.error === "location_not_configured") {
+          onError({ kind: "location_not_configured" });
         } else {
           onError({ kind: "unknown" });
         }
