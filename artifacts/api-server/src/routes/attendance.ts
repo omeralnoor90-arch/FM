@@ -113,9 +113,13 @@ router.post("/attendance/check-in", async (req, res) => {
     }
 
     // ── Location enforcement (when system is active and location is configured) ──
-    if (settings.isActive && settings.locationLat != null && settings.locationLng != null) {
+    const workshopLat = settings.locationLat != null ? Number(settings.locationLat) : null;
+    const workshopLng = settings.locationLng != null ? Number(settings.locationLng) : null;
+    const radiusMeters = Number(settings.locationRadiusMeters) || 200;
+
+    if (settings.isActive && workshopLat != null && workshopLng != null) {
       // Block if no location provided
-      if (lat == null || lng == null) {
+      if (lat == null || lng == null || isNaN(Number(lat)) || isNaN(Number(lng))) {
         await db.insert(failedCheckInAttemptsTable).values({
           workerId,
           checkDate: today,
@@ -130,22 +134,40 @@ router.post("/attendance/check-in", async (req, res) => {
 
       // Block if outside zone
       const distance = Math.round(
-        haversineMeters(settings.locationLat, settings.locationLng, lat, lng)
+        haversineMeters(workshopLat, workshopLng, Number(lat), Number(lng))
       );
-      if (distance > settings.locationRadiusMeters) {
+
+      if (isNaN(distance) || distance > radiusMeters) {
         await db.insert(failedCheckInAttemptsTable).values({
           workerId,
           checkDate: today,
           reason: "outside_zone",
-          lat,
-          lng,
-          distanceMeters: distance,
+          lat: Number(lat),
+          lng: Number(lng),
+          distanceMeters: isNaN(distance) ? null : distance,
         });
         res.status(403).json({
           error: "outside_zone",
-          distanceMeters: distance,
-          radiusMeters: settings.locationRadiusMeters,
+          distanceMeters: isNaN(distance) ? null : distance,
+          radiusMeters,
         });
+        return;
+      }
+    }
+
+    // If system is active but location is not yet configured, require worker to provide coordinates
+    // but don't enforce zone — log the attempt as informational
+    if (settings.isActive && (workshopLat == null || workshopLng == null)) {
+      if (lat == null || lng == null) {
+        await db.insert(failedCheckInAttemptsTable).values({
+          workerId,
+          checkDate: today,
+          reason: "location_denied",
+          lat: null,
+          lng: null,
+          distanceMeters: null,
+        });
+        res.status(403).json({ error: "location_required" });
         return;
       }
     }
@@ -157,15 +179,21 @@ router.post("/attendance/check-in", async (req, res) => {
 
     if (
       settings.isActive &&
-      settings.locationLat != null &&
-      settings.locationLng != null &&
+      workshopLat != null &&
+      workshopLng != null &&
       lat != null &&
       lng != null
     ) {
       distanceMeters = Math.round(
-        haversineMeters(settings.locationLat, settings.locationLng, lat, lng)
+        haversineMeters(workshopLat, workshopLng, Number(lat), Number(lng))
       );
       isWithinZone = true;
+      const [h, m] = settings.workStartTime.split(":").map(Number);
+      const workStart = new Date(now);
+      workStart.setHours(h!, m!, 0, 0);
+      const graceEnd = new Date(workStart.getTime() + settings.graceMinutes * 60000);
+      status = now <= graceEnd ? "on-time" : "late";
+    } else if (settings.isActive && lat != null && lng != null) {
       const [h, m] = settings.workStartTime.split(":").map(Number);
       const workStart = new Date(now);
       workStart.setHours(h!, m!, 0, 0);
