@@ -603,6 +603,8 @@
     "locationName": "Location Name",
     "latitude": "Latitude",
     "longitude": "Longitude",
+    "mapPickerLabel": "Workshop Location",
+    "mapPickerHint": "Click anywhere on the map to set the workshop pin, or drag the pin to reposition it.",
     "captureMyLocation": "Use My Current Location",
     "locationCaptured": "Location captured",
     "locationDenied": "Location access denied",
