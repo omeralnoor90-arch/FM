@@ -407,6 +407,7 @@
     "title": "Analytics",
     "subtitle": "Analyze workshop performance over time.",
     "revenue": "Revenue",
+    "netIncome": "Net Income (After Fees)",
     "profit": "Profit",
     "jobs": "Jobs",
     "expenses": "Expenses",
