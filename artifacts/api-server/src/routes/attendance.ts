@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, attendanceSettingsTable, attendanceRecordsTable, workersTable } from "@workspace/db";
+import { db, attendanceSettingsTable, attendanceRecordsTable, workersTable, failedCheckInAttemptsTable } from "@workspace/db";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { requireAdminOrManager } from "../middleware/auth";
 
@@ -91,7 +91,6 @@ router.post("/attendance/check-in", async (req, res) => {
     const settings = await ensureSettings();
     const { lat, lng } = req.body as { lat?: number | null; lng?: number | null };
 
-    // Determine today's date in local time (YYYY-MM-DD)
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
 
@@ -108,13 +107,50 @@ router.post("/attendance/check-in", async (req, res) => {
       .limit(1);
 
     if (existing.length > 0) {
-      // Return the existing record with worker name
       const worker = await db.select().from(workersTable).where(eq(workersTable.id, workerId)).limit(1);
       res.json({ ...existing[0], workerName: worker[0]?.name ?? "" });
       return;
     }
 
-    // Calculate distance and status
+    // ── Location enforcement (when system is active and location is configured) ──
+    if (settings.isActive && settings.locationLat != null && settings.locationLng != null) {
+      // Block if no location provided
+      if (lat == null || lng == null) {
+        await db.insert(failedCheckInAttemptsTable).values({
+          workerId,
+          checkDate: today,
+          reason: "location_denied",
+          lat: null,
+          lng: null,
+          distanceMeters: null,
+        });
+        res.status(403).json({ error: "location_required" });
+        return;
+      }
+
+      // Block if outside zone
+      const distance = Math.round(
+        haversineMeters(settings.locationLat, settings.locationLng, lat, lng)
+      );
+      if (distance > settings.locationRadiusMeters) {
+        await db.insert(failedCheckInAttemptsTable).values({
+          workerId,
+          checkDate: today,
+          reason: "outside_zone",
+          lat,
+          lng,
+          distanceMeters: distance,
+        });
+        res.status(403).json({
+          error: "outside_zone",
+          distanceMeters: distance,
+          radiusMeters: settings.locationRadiusMeters,
+        });
+        return;
+      }
+    }
+
+    // ── Calculate final status ────────────────────────────────────────────────
     let distanceMeters: number | null = null;
     let isWithinZone: boolean | null = null;
     let status = "present";
@@ -129,18 +165,12 @@ router.post("/attendance/check-in", async (req, res) => {
       distanceMeters = Math.round(
         haversineMeters(settings.locationLat, settings.locationLng, lat, lng)
       );
-      isWithinZone = distanceMeters <= settings.locationRadiusMeters;
-
-      if (!isWithinZone) {
-        status = "outside-zone";
-      } else {
-        // Check if on time or late
-        const [h, m] = settings.workStartTime.split(":").map(Number);
-        const workStart = new Date(now);
-        workStart.setHours(h!, m!, 0, 0);
-        const graceEnd = new Date(workStart.getTime() + settings.graceMinutes * 60000);
-        status = now <= graceEnd ? "on-time" : "late";
-      }
+      isWithinZone = true;
+      const [h, m] = settings.workStartTime.split(":").map(Number);
+      const workStart = new Date(now);
+      workStart.setHours(h!, m!, 0, 0);
+      const graceEnd = new Date(workStart.getTime() + settings.graceMinutes * 60000);
+      status = now <= graceEnd ? "on-time" : "late";
     }
 
     const [record] = await db
@@ -162,6 +192,37 @@ router.post("/attendance/check-in", async (req, res) => {
   } catch (e) {
     req.log.error(e);
     res.status(500).json({ error: "Failed to check in" });
+  }
+});
+
+// ── GET /attendance/failed-attempts ──────────────────────────────────────────
+router.get("/attendance/failed-attempts", requireAdminOrManager, async (req, res) => {
+  try {
+    const { date } = req.query as { date?: string };
+    const today = new Date().toISOString().slice(0, 10);
+    const targetDate = date ?? today;
+
+    const attempts = await db
+      .select({
+        id: failedCheckInAttemptsTable.id,
+        workerId: failedCheckInAttemptsTable.workerId,
+        workerName: workersTable.name,
+        checkDate: failedCheckInAttemptsTable.checkDate,
+        attemptedAt: failedCheckInAttemptsTable.attemptedAt,
+        reason: failedCheckInAttemptsTable.reason,
+        lat: failedCheckInAttemptsTable.lat,
+        lng: failedCheckInAttemptsTable.lng,
+        distanceMeters: failedCheckInAttemptsTable.distanceMeters,
+      })
+      .from(failedCheckInAttemptsTable)
+      .innerJoin(workersTable, eq(failedCheckInAttemptsTable.workerId, workersTable.id))
+      .where(eq(failedCheckInAttemptsTable.checkDate, targetDate))
+      .orderBy(desc(failedCheckInAttemptsTable.attemptedAt));
+
+    res.json(attempts);
+  } catch (e) {
+    req.log.error(e);
+    res.status(500).json({ error: "Failed to fetch failed attempts" });
   }
 });
 
