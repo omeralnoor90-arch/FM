@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { WorkerLayout } from "@/pages/portal/worker-layout";
+import { InstallPrompt } from "@/components/install-prompt";
 import NotFound from "@/pages/not-found";
 import { useEffect } from "react";
 
@@ -134,6 +135,7 @@ function App() {
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <AppRouter />
           </WouterRouter>
+          <InstallPrompt />
           <Toaster />
         </AuthProvider>
       </TooltipProvider>
