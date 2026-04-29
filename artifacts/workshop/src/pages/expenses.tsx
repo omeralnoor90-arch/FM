@@ -276,7 +276,7 @@ export default function Expenses() {
     }
   };
 
-  const currency = settings?.currency || "USD";
+  const currency = settings?.currency || "SAR";
 
   const PaidByBadge = ({ workerId, paidWith, workerName }: { workerId: number | null; paidWith: string; workerName?: string | null }) => {
     if (workerId !== null) {
