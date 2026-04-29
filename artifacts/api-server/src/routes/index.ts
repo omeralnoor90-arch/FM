@@ -11,6 +11,8 @@ import analyticsRouter from "./analytics";
 import reportsRouter from "./reports";
 import storageRouter from "./storage";
 import authRouter, { seedAdminAccount } from "./auth";
+import backupRouter from "./backup";
+import attendanceRouter from "./attendance";
 import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -32,5 +34,7 @@ router.use(partsRouter);
 router.use(analyticsRouter);
 router.use(reportsRouter);
 router.use(storageRouter);
+router.use(backupRouter);
+router.use(attendanceRouter);
 
 export default router;
