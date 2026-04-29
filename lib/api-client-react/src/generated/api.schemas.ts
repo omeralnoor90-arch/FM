@@ -528,7 +528,18 @@ export type ListJobsParams = {
   workerId?: number;
   from?: string;
   to?: string;
+  status?: ListJobsStatus;
 };
+
+export type ListJobsStatus =
+  (typeof ListJobsStatus)[keyof typeof ListJobsStatus];
+
+export const ListJobsStatus = {
+  approved: "approved",
+  pending: "pending",
+  rejected: "rejected",
+  all: "all",
+} as const;
 
 export type UpdateJobExpensesBodyExpenseLinesItem = {
   description: string;
