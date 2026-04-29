@@ -21,10 +21,12 @@ import Reports from "@/pages/reports";
 import LoginPage from "@/pages/login";
 import ChangePasswordPage from "@/pages/change-password";
 
+import Attendance from "@/pages/attendance";
 import WorkerHome from "@/pages/portal/worker-home";
 import WorkerJobs from "@/pages/portal/worker-jobs";
 import WorkerProfile from "@/pages/portal/worker-profile";
 import WorkerSubmitJob from "@/pages/portal/worker-submit-job";
+import WorkerAttendance from "@/pages/portal/worker-attendance";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +48,7 @@ function AdminRouter() {
         <Route path="/parts" component={Parts} />
         <Route path="/analytics" component={Analytics} />
         <Route path="/reports" component={Reports} />
+        <Route path="/attendance" component={Attendance} />
         <Route path="/settings" component={Settings} />
         <Route path="/credentials" component={Credentials} />
         <Route path="/portal">{() => <RedirectTo to="/" />}</Route>
@@ -65,6 +68,7 @@ function ManagerRouter() {
         <Route path="/workers/:id" component={WorkerDetail} />
         <Route path="/expenses" component={Expenses} />
         <Route path="/parts" component={Parts} />
+        <Route path="/attendance" component={Attendance} />
         <Route path="/portal">{() => <RedirectTo to="/jobs" />}</Route>
         <Route component={NotFound} />
       </Switch>
@@ -79,6 +83,7 @@ function WorkerRouter() {
         <Route path="/portal" component={WorkerHome} />
         <Route path="/portal/jobs" component={WorkerJobs} />
         <Route path="/portal/submit-job" component={WorkerSubmitJob} />
+        <Route path="/portal/attendance" component={WorkerAttendance} />
         <Route path="/portal/profile" component={WorkerProfile} />
         <Route>{() => <RedirectTo to="/portal" />}</Route>
       </Switch>
