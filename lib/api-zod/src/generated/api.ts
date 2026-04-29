@@ -55,6 +55,10 @@ export const ListWorkersResponseItem = zod.object({
   workshopPercent: zod.number().describe("% going to workshop"),
   equityPercent: zod.number().describe("Workshop equity share (informational)"),
   active: zod.boolean(),
+  attendanceMode: zod
+    .string()
+    .optional()
+    .describe("required | optional | exempt"),
   createdAt: zod.coerce.date().optional(),
 });
 export const ListWorkersResponse = zod.array(ListWorkersResponseItem);
@@ -85,6 +89,10 @@ export const GetWorkerResponse = zod
       .number()
       .describe("Workshop equity share (informational)"),
     active: zod.boolean(),
+    attendanceMode: zod
+      .string()
+      .optional()
+      .describe("required | optional | exempt"),
     createdAt: zod.coerce.date().optional(),
   })
   .and(
@@ -119,6 +127,10 @@ export const UpdateWorkerResponse = zod.object({
   workshopPercent: zod.number().describe("% going to workshop"),
   equityPercent: zod.number().describe("Workshop equity share (informational)"),
   active: zod.boolean(),
+  attendanceMode: zod
+    .string()
+    .optional()
+    .describe("required | optional | exempt"),
   createdAt: zod.coerce.date().optional(),
 });
 
@@ -670,6 +682,33 @@ export const UpdateAttendanceSettingsResponse = zod.object({
 });
 
 /**
+ * @summary Set a worker's attendance mode (admin/manager)
+ */
+export const UpdateWorkerAttendanceModeParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateWorkerAttendanceModeBody = zod.object({
+  mode: zod.string().describe("required | optional | exempt"),
+});
+
+export const UpdateWorkerAttendanceModeResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  workerPercent: zod
+    .number()
+    .describe("% of net job revenue going to this worker"),
+  workshopPercent: zod.number().describe("% going to workshop"),
+  equityPercent: zod.number().describe("Workshop equity share (informational)"),
+  active: zod.boolean(),
+  attendanceMode: zod
+    .string()
+    .optional()
+    .describe("required | optional | exempt"),
+  createdAt: zod.coerce.date().optional(),
+});
+
+/**
  * @summary Worker checks in with their location
  */
 export const CheckInBody = zod.object({
@@ -699,6 +738,7 @@ export const GetTodayAttendanceResponseItem = zod.object({
   workerId: zod.number(),
   workerName: zod.string(),
   hasCheckedIn: zod.boolean(),
+  attendanceMode: zod.string().describe("required | optional | exempt"),
   record: zod
     .object({
       id: zod.number(),
