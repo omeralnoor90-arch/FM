@@ -33,7 +33,7 @@ export default function Analytics() {
   const { t } = useTranslation();
   
   const { data: settings } = useGetSettings();
-  const currency = settings?.currency || "USD";
+  const currency = settings?.currency || "SAR";
 
   const { data: summary, isLoading: loadingSummary } = useGetSummary({ period }, {
     query: { queryKey: getGetSummaryQueryKey({ period }) }
@@ -99,7 +99,7 @@ export default function Analytics() {
         </Card>
         <Card className="shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.grossIncome")}</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t("analytics.netIncome")}</CardTitle>
           </CardHeader>
           <CardContent>
             {loadingSummary ? <Skeleton className="h-8 w-24" /> : (
@@ -169,7 +169,7 @@ export default function Analytics() {
                     <YAxis 
                       stroke="hsl(var(--muted-foreground))"
                       fontSize={12}
-                      tickFormatter={(val) => `$${val}`}
+                      tickFormatter={(val) => `${Number(val).toLocaleString()} ${currency}`}
                     />
                     <RechartsTooltip content={<CustomTooltip />} />
                     <Legend />
@@ -244,7 +244,7 @@ export default function Analytics() {
                     <YAxis 
                       stroke="hsl(var(--muted-foreground))"
                       fontSize={12}
-                      tickFormatter={(val) => `$${val}`}
+                      tickFormatter={(val) => `${Number(val).toLocaleString()} ${currency}`}
                     />
                     <RechartsTooltip content={<CustomTooltip />} />
                     <Legend />
