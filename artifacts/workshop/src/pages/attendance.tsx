@@ -562,6 +562,17 @@ function SettingsTab() {
             />
           </div>
 
+          {/* Warning when system is OFF */}
+          {!form.isActive && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 px-3.5 py-3">
+              <AlertTriangle size={16} className="text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-red-700 dark:text-red-400">{t("attendance.systemOffWarningTitle")}</p>
+                <p className="text-xs text-red-600/80 dark:text-red-400/80 mt-0.5">{t("attendance.systemOffWarningDesc")}</p>
+              </div>
+            </div>
+          )}
+
           <div className="h-px bg-border" />
 
           {/* Work start time */}
