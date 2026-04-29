@@ -20,7 +20,9 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import WorkshopLocationPicker from "@/components/WorkshopLocationPicker";
 import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle2,
@@ -32,7 +34,6 @@ import {
   History,
   AlertTriangle,
   Loader2,
-  Navigation,
   UserCog,
   AlertOctagon,
 } from "lucide-react";
@@ -478,13 +479,21 @@ function SettingsTab() {
     },
   });
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    isActive: boolean;
+    workStartTime: string;
+    graceMinutes: number;
+    locationName: string;
+    locationLat: number | null;
+    locationLng: number | null;
+    locationRadiusMeters: number;
+  }>({
     isActive: false,
     workStartTime: "08:00",
     graceMinutes: 15,
     locationName: "Workshop",
-    locationLat: "",
-    locationLng: "",
+    locationLat: null,
+    locationLng: null,
     locationRadiusMeters: 200,
   });
 
@@ -495,33 +504,11 @@ function SettingsTab() {
       workStartTime: settings.workStartTime,
       graceMinutes: settings.graceMinutes,
       locationName: settings.locationName,
-      locationLat: settings.locationLat != null ? String(settings.locationLat) : "",
-      locationLng: settings.locationLng != null ? String(settings.locationLng) : "",
+      locationLat: settings.locationLat ?? null,
+      locationLng: settings.locationLng ?? null,
       locationRadiusMeters: settings.locationRadiusMeters,
     });
   }, [settings]);
-
-  const [locating, setLocating] = useState(false);
-
-  function captureMyLocation() {
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setForm((f) => ({
-          ...f,
-          locationLat: String(pos.coords.latitude.toFixed(6)),
-          locationLng: String(pos.coords.longitude.toFixed(6)),
-        }));
-        setLocating(false);
-        toast({ title: t("attendance.locationCaptured") });
-      },
-      () => {
-        setLocating(false);
-        toast({ title: t("attendance.locationDenied"), variant: "destructive" });
-      },
-      { enableHighAccuracy: true }
-    );
-  }
 
   function save() {
     updateMutation.mutate({
@@ -530,8 +517,8 @@ function SettingsTab() {
         workStartTime: form.workStartTime,
         graceMinutes: Number(form.graceMinutes),
         locationName: form.locationName,
-        locationLat: form.locationLat ? Number(form.locationLat) : null,
-        locationLng: form.locationLng ? Number(form.locationLng) : null,
+        locationLat: form.locationLat,
+        locationLng: form.locationLng,
         locationRadiusMeters: Number(form.locationRadiusMeters),
       },
     });
@@ -623,61 +610,47 @@ function SettingsTab() {
             />
           </div>
 
-          {/* Lat / Lng */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-sm text-foreground">{t("attendance.latitude")}</Label>
-              <Input
-                type="number"
-                step="any"
-                placeholder="24.000000"
-                value={form.locationLat}
-                onChange={(e) => setForm((f) => ({ ...f, locationLat: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm text-foreground">{t("attendance.longitude")}</Label>
-              <Input
-                type="number"
-                step="any"
-                placeholder="46.000000"
-                value={form.locationLng}
-                onChange={(e) => setForm((f) => ({ ...f, locationLng: e.target.value }))}
-              />
-            </div>
+          {/* Interactive map */}
+          <div className="space-y-1.5">
+            <Label className="text-sm text-foreground">{t("attendance.mapPickerLabel")}</Label>
+            <p className="text-xs text-muted-foreground">{t("attendance.mapPickerHint")}</p>
+            <WorkshopLocationPicker
+              lat={form.locationLat}
+              lng={form.locationLng}
+              radius={form.locationRadiusMeters}
+              onChange={(lat, lng) => setForm((f) => ({ ...f, locationLat: lat, locationLng: lng }))}
+            />
           </div>
 
-          {/* Capture current location */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={captureMyLocation}
-            disabled={locating}
-            className="gap-2"
-          >
-            {locating ? <Loader2 size={13} className="animate-spin" /> : <Navigation size={13} />}
-            {t("attendance.captureMyLocation")}
-          </Button>
-
-          {/* Radius */}
-          <div className="space-y-1.5">
-            <Label className="text-sm text-foreground">{t("attendance.radiusMeters")}</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                min={10}
-                max={5000}
-                value={form.locationRadiusMeters}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, locationRadiusMeters: Number(e.target.value) }))
-                }
-                className="w-28"
-              />
-              <span className="text-muted-foreground text-sm">{t("attendance.meters")}</span>
+          {/* Coordinates display */}
+          {form.locationLat != null && form.locationLng != null && (
+            <div className="flex gap-4 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+              <span>{t("attendance.latitude")}: <span className="font-mono text-foreground">{form.locationLat.toFixed(6)}</span></span>
+              <span>{t("attendance.longitude")}: <span className="font-mono text-foreground">{form.locationLng.toFixed(6)}</span></span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {t("attendance.radiusHint")}
-            </p>
+          )}
+
+          {/* Radius slider */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm text-foreground">{t("attendance.radiusMeters")}</Label>
+              <span className="text-sm font-semibold tabular-nums">
+                {form.locationRadiusMeters} {t("attendance.meters")}
+              </span>
+            </div>
+            <Slider
+              min={25}
+              max={2000}
+              step={25}
+              value={[form.locationRadiusMeters]}
+              onValueChange={([v]) => setForm((f) => ({ ...f, locationRadiusMeters: v }))}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>25 m</span>
+              <span>2 000 m</span>
+            </div>
+            <p className="text-xs text-muted-foreground">{t("attendance.radiusHint")}</p>
           </div>
         </CardContent>
       </Card>
