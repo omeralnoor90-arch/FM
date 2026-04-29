@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/auth-context";
-import { Home, Briefcase, User, LogOut, PlusCircle } from "lucide-react";
+import { Home, Briefcase, User, LogOut, PlusCircle, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { applyLang, type Lang } from "@/i18n";
 
@@ -19,6 +19,7 @@ export function WorkerLayout({ children }: WorkerLayoutProps) {
     { href: "/portal", label: t("portal.home"), icon: Home },
     { href: "/portal/jobs", label: t("portal.myJobs"), icon: Briefcase },
     { href: "/portal/submit-job", label: t("portal.submitJob"), icon: PlusCircle },
+    { href: "/portal/attendance", label: t("portal.attendance"), icon: ClipboardCheck },
     { href: "/portal/profile", label: t("portal.profile"), icon: User },
   ];
 
