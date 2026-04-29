@@ -16,7 +16,7 @@ import {
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
-import { Receipt } from "lucide-react";
+import { Receipt, Users } from "lucide-react";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, Legend
@@ -86,7 +86,7 @@ export default function Analytics() {
         </ToggleGroup>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card className="shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t("analytics.revenue")}</CardTitle>
@@ -136,6 +136,19 @@ export default function Analytics() {
             {loadingSummary ? <Skeleton className="h-8 w-24" /> : (
               <div className="text-2xl font-bold text-destructive">
                 {formatCurrency((summary?.generalExpenses || 0) + (summary?.partsCost || 0), currency)}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        <Card className="shadow-sm border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-400">{t("dashboard.workerPayouts")}</CardTitle>
+            <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          </CardHeader>
+          <CardContent>
+            {loadingSummary ? <Skeleton className="h-8 w-24" /> : (
+              <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">
+                {formatCurrency(summary?.workerPayouts || 0, currency)}
               </div>
             )}
           </CardContent>
