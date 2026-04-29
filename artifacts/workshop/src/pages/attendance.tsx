@@ -504,8 +504,8 @@ function SettingsTab() {
       workStartTime: settings.workStartTime,
       graceMinutes: settings.graceMinutes,
       locationName: settings.locationName,
-      locationLat: settings.locationLat ?? null,
-      locationLng: settings.locationLng ?? null,
+      locationLat: settings.locationLat != null ? Number(settings.locationLat) : null,
+      locationLng: settings.locationLng != null ? Number(settings.locationLng) : null,
       locationRadiusMeters: settings.locationRadiusMeters,
     });
   }, [settings]);
