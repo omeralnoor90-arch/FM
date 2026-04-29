@@ -243,12 +243,24 @@ function SettingsTab() {
     },
   });
 
+  const [optimisticModes, setOptimisticModes] = useState<Record<number, string>>({});
+
   const modeMutation = useUpdateWorkerAttendanceMode({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (_data, variables) => {
+        setOptimisticModes((prev) => {
+          const next = { ...prev };
+          delete next[variables.id];
+          return next;
+        });
         qc.invalidateQueries({ queryKey: getListWorkersQueryKey() });
       },
-      onError: (err) => {
+      onError: (err, variables) => {
+        setOptimisticModes((prev) => {
+          const next = { ...prev };
+          delete next[variables.id];
+          return next;
+        });
         toast({
           title: t("attendance.saveFailed"),
           description: err instanceof Error ? err.message : String(err),
@@ -318,6 +330,7 @@ function SettingsTab() {
   }
 
   function setWorkerMode(workerId: number, mode: string) {
+    setOptimisticModes((prev) => ({ ...prev, [workerId]: mode }));
     modeMutation.mutate({ id: workerId, data: { mode } });
   }
 
@@ -496,7 +509,8 @@ function SettingsTab() {
             <p className="text-sm text-zinc-500">{t("attendance.noWorkers")}</p>
           ) : (
             activeWorkers.map((worker) => {
-              const currentMode = worker.attendanceMode ?? "required";
+              const currentMode =
+                optimisticModes[worker.id] ?? worker.attendanceMode ?? "required";
               return (
                 <div
                   key={worker.id}
@@ -508,12 +522,10 @@ function SettingsTab() {
                   <div className="flex items-center rounded-lg overflow-hidden border border-zinc-700 shrink-0">
                     {modeOptions.map((opt) => {
                       const isActive = currentMode === opt.value;
-                      const isBusy = modeMutation.isPending;
                       return (
                         <button
                           key={opt.value}
-                          onClick={() => !isBusy && setWorkerMode(worker.id, opt.value)}
-                          disabled={isBusy}
+                          onClick={() => setWorkerMode(worker.id, opt.value)}
                           className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${
                             isActive
                               ? opt.value === "exempt"
