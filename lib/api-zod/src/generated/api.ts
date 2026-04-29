@@ -206,6 +206,7 @@ export const ListJobsQueryParams = zod.object({
   workerId: zod.coerce.number().optional(),
   from: zod.date().optional(),
   to: zod.date().optional(),
+  status: zod.enum(["approved", "pending", "rejected", "all"]).optional(),
 });
 
 export const ListJobsResponseItem = zod.object({
