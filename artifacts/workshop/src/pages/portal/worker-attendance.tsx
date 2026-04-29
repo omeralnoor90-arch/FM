@@ -152,7 +152,7 @@ function CheckInButton({ onError }: { onError: (e: CheckInError) => void }) {
         qc.invalidateQueries({ queryKey: getListMyAttendanceRecordsQueryKey() });
       },
       onError: (err) => {
-        const body = (err as { response?: { data?: { error?: string; distanceMeters?: number; radiusMeters?: number } } })?.response?.data;
+        const body = (err as { data?: { error?: string; distanceMeters?: number; radiusMeters?: number } | null }).data;
         if (body?.error === "location_required") {
           onError({ kind: "location_denied" });
         } else if (body?.error === "outside_zone") {
