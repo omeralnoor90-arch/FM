@@ -631,6 +631,16 @@
     "noWorkers": "No active workers found",
     "statusAbsent": "Absent",
     "optionalSection": "Optional attendance",
-    "didNotAttend": "Did not attend"
+    "didNotAttend": "Did not attend",
+    "locationRequiredTitle": "Location Required",
+    "locationRequiredDesc": "You must allow location access to check in. Please enable GPS permissions in your browser and try again.",
+    "outsideZoneTitle": "Not at the Workshop",
+    "outsideZoneDesc": "You are {{distance}}m away from the workshop. You must be within {{radius}}m to check in.",
+    "retryCheckIn": "Try Again",
+    "failedAttempts": "Failed Check-in Attempts",
+    "failedAttemptsNone": "No failed attempts today",
+    "reasonLocationDenied": "Location not shared",
+    "reasonOutsideZone": "Outside workshop zone",
+    "attemptedAt": "Attempted at"
   }
 }
