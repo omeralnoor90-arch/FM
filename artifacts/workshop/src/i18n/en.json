@@ -628,6 +628,9 @@
     "modeRequired": "Required",
     "modeOptional": "Optional",
     "modeExempt": "Exempt",
-    "noWorkers": "No active workers found"
+    "noWorkers": "No active workers found",
+    "statusAbsent": "Absent",
+    "optionalSection": "Optional attendance",
+    "didNotAttend": "Did not attend"
   }
 }
