@@ -14,7 +14,7 @@ export default function Dashboard() {
   const { data: balances, isLoading: loadingBalances } = useGetBalances({ query: { queryKey: getGetBalancesQueryKey() } });
   const { data: activity, isLoading: loadingActivity } = useGetRecentActivity({ query: { queryKey: getGetRecentActivityQueryKey() } });
 
-  const currency = settings?.currency || "USD";
+  const currency = settings?.currency || "SAR";
 
   if (summaryError) {
     return (
