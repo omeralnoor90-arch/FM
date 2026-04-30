@@ -14,6 +14,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog";
+import {
   CheckCircle2,
   XCircle,
   Clock,
@@ -145,16 +149,19 @@ function ErrorCard({ error, onRetry }: { error: CheckInError; onRetry: () => voi
   );
 }
 
-function CheckInButton({ onError }: { onError: (e: CheckInError) => void }) {
+function CheckInButton({ onError, onLate }: { onError: (e: CheckInError) => void; onLate: () => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [locating, setLocating] = useState(false);
 
   const checkInMutation = useCheckIn({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (data) => {
         qc.invalidateQueries({ queryKey: getGetMyTodayAttendanceQueryKey() });
         qc.invalidateQueries({ queryKey: getListMyAttendanceRecordsQueryKey() });
+        if ((data as { status?: string }).status === "late") {
+          onLate();
+        }
       },
       onError: (err) => {
         const body = (err as { data?: { error?: string; distanceMeters?: number; radiusMeters?: number } | null }).data;
@@ -233,6 +240,7 @@ function CheckInButton({ onError }: { onError: (e: CheckInError) => void }) {
 export default function WorkerAttendance() {
   const { t } = useTranslation();
   const [checkInError, setCheckInError] = useState<CheckInError | null>(null);
+  const [showLateModal, setShowLateModal] = useState(false);
 
   const { data: todayRecord, isLoading: loadingToday } = useGetMyTodayAttendance({
     query: { retry: false, staleTime: 0, refetchOnMount: "always" as const },
@@ -246,6 +254,28 @@ export default function WorkerAttendance() {
 
   return (
     <div className="space-y-5 pb-8">
+      {/* Late notification dialog */}
+      <Dialog open={showLateModal} onOpenChange={setShowLateModal}>
+        <DialogContent className="max-w-xs text-center rounded-2xl px-6 py-8">
+          <div className="flex flex-col items-center gap-4">
+            <span style={{ fontSize: 64, lineHeight: 1 }}>😤</span>
+            <div>
+              <p className="text-xl font-bold text-foreground">{t("attendance.lateTitle")}</p>
+              <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
+                {t("attendance.lateMessage")}
+              </p>
+            </div>
+            <Button
+              className="w-full mt-2"
+              style={{ background: "#FF3C00", color: "#fff" }}
+              onClick={() => setShowLateModal(false)}
+            >
+              {t("attendance.lateAcknowledge")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="pt-2">
         <h1 className="text-foreground text-xl font-bold">{t("attendance.portalTitle")}</h1>
         <p className="text-muted-foreground text-sm mt-0.5">
@@ -265,7 +295,7 @@ export default function WorkerAttendance() {
       ) : checkInError ? (
         <ErrorCard error={checkInError} onRetry={() => setCheckInError(null)} />
       ) : (
-        <CheckInButton onError={setCheckInError} />
+        <CheckInButton onError={setCheckInError} onLate={() => setShowLateModal(true)} />
       )}
 
       {/* History */}
