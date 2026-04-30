@@ -13,6 +13,7 @@
     "credentials": "Credentials",
     "settings": "Settings",
     "attendance": "Attendance",
+    "myAttendance": "My Attendance",
     "signOut": "Sign out"
   },
   "portal": {
