@@ -15,6 +15,7 @@ import {
   Languages,
   Menu,
   ClipboardCheck,
+  UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -35,23 +36,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const isManager = user?.role === "manager";
 
   const allNavItems = [
-    { name: t("nav.dashboard"), href: "/", icon: LayoutDashboard, adminOnly: true },
-    { name: t("nav.jobs"), href: "/jobs", icon: Briefcase, adminOnly: false },
-    { name: t("nav.workers"), href: "/workers", icon: Users, adminOnly: false },
-    { name: t("nav.attendance"), href: "/attendance", icon: ClipboardCheck, adminOnly: false },
-    { name: t("nav.expenses"), href: "/expenses", icon: CreditCard, adminOnly: false },
-    { name: t("nav.parts"), href: "/parts", icon: Wrench, adminOnly: false },
-    { name: t("nav.analytics"), href: "/analytics", icon: BarChart3, adminOnly: true },
-    { name: t("nav.reports"), href: "/reports", icon: FileBarChart, adminOnly: true },
+    { name: t("nav.dashboard"),    href: "/",               icon: LayoutDashboard, showAdmin: true,  showManager: false },
+    { name: t("nav.jobs"),         href: "/jobs",            icon: Briefcase,       showAdmin: true,  showManager: true  },
+    { name: t("nav.workers"),      href: "/workers",         icon: Users,           showAdmin: true,  showManager: true  },
+    { name: t("nav.attendance"),   href: "/attendance",      icon: ClipboardCheck,  showAdmin: true,  showManager: false },
+    { name: t("nav.myAttendance"), href: "/my-attendance",   icon: UserCheck,       showAdmin: false, showManager: true  },
+    { name: t("nav.expenses"),     href: "/expenses",        icon: CreditCard,      showAdmin: true,  showManager: true  },
+    { name: t("nav.parts"),        href: "/parts",           icon: Wrench,          showAdmin: true,  showManager: true  },
+    { name: t("nav.analytics"),    href: "/analytics",       icon: BarChart3,       showAdmin: true,  showManager: false },
+    { name: t("nav.reports"),      href: "/reports",         icon: FileBarChart,    showAdmin: true,  showManager: false },
   ];
 
   const allBottomItems = [
-    { name: t("nav.credentials"), href: "/credentials", icon: KeyRound, adminOnly: true },
-    { name: t("nav.settings"), href: "/settings", icon: SettingsIcon, adminOnly: true },
+    { name: t("nav.credentials"), href: "/credentials", icon: KeyRound,      showAdmin: true, showManager: false },
+    { name: t("nav.settings"),    href: "/settings",    icon: SettingsIcon,  showAdmin: true, showManager: false },
   ];
 
-  const navigation = isManager ? allNavItems.filter(i => !i.adminOnly) : allNavItems;
-  const bottomNav = isManager ? [] : allBottomItems;
+  const navigation = allNavItems.filter(i => isManager ? i.showManager : i.showAdmin);
+  const bottomNav = allBottomItems.filter(i => isManager ? i.showManager : i.showAdmin);
 
   function toggleLang() {
     const next: Lang = i18n.language === "ar" ? "en" : "ar";
