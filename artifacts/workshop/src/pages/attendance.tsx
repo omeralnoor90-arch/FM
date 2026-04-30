@@ -131,13 +131,39 @@ function TodayTab() {
   const optional = (todayList ?? []).filter((w) => w.attendanceMode === "optional");
 
   const onTimeCount = required.filter((w) => workerStatus(w) === "on-time").length;
-  const lateCount = required.filter(
-    (w) => workerStatus(w) === "late" || workerStatus(w) === "outside-zone" || workerStatus(w) === "present"
+  const lateWorkers = required.filter((w) => workerStatus(w) === "late");
+  const lateCount = lateWorkers.length + required.filter(
+    (w) => workerStatus(w) === "outside-zone" || workerStatus(w) === "present"
   ).length;
   const absentCount = required.filter((w) => !w.hasCheckedIn).length;
 
   return (
     <div className="space-y-4">
+      {/* ── Late worker alerts ── */}
+      {lateWorkers.length > 0 && (
+        <Card className="border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-950/30">
+          <CardContent className="pt-4 pb-4 space-y-2">
+            <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-400 font-semibold text-sm">
+              <span>😤</span>
+              {t("attendance.lateAlertTitle")} ({lateWorkers.length})
+            </div>
+            {lateWorkers.map((w) => (
+              <div
+                key={w.workerId}
+                className="flex items-center justify-between gap-3 rounded-md bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 px-3 py-2"
+              >
+                <span className="text-sm font-medium text-foreground">{w.workerName}</span>
+                {w.record && (
+                  <span className="text-xs text-muted-foreground font-mono shrink-0">
+                    {t("attendance.checkedInAt")} {format(new Date(w.record.checkInAt), "HH:mm")}
+                  </span>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* ── Failed check-in alerts ── */}
       {failedAttempts && failedAttempts.length > 0 && (
         <Card className="border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
