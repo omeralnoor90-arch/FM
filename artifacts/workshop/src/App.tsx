@@ -69,7 +69,7 @@ function ManagerRouter() {
         <Route path="/workers/:id" component={WorkerDetail} />
         <Route path="/expenses" component={Expenses} />
         <Route path="/parts" component={Parts} />
-        <Route path="/attendance" component={Attendance} />
+        <Route path="/my-attendance" component={WorkerAttendance} />
         <Route path="/portal">{() => <RedirectTo to="/jobs" />}</Route>
         <Route component={NotFound} />
       </Switch>
