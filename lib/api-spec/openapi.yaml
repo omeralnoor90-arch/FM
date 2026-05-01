@@ -752,7 +752,11 @@ components:
         netAmount: { type: number, description: "Splittable amount = gross - VAT - expenses" }
         workerShare: { type: number }
         workshopShare: { type: number }
+        plateNumber: { type: string, nullable: true }
+        carModel: { type: string, nullable: true }
         notes: { type: string, nullable: true }
+        status: { type: string, nullable: true }
+        submittedByWorkerId: { type: integer, nullable: true }
         expenseLines:
           type: array
           items: { $ref: "#/components/schemas/JobExpenseLine" }
@@ -768,6 +772,7 @@ components:
         jobType: { type: string, enum: [single, shared], description: "single = one worker, shared = multiple workers split manually" }
         workerId: { type: integer, description: "Required when jobType = single" }
         cashReceivedByWorkerId: { type: integer, nullable: true, description: "Cash jobs only: which worker physically received the cash from the customer" }
+        workerPercentOverride: { type: number, description: "Override the default worker pool percentage (0–100). Defaults to 50 for shared jobs." }
         workerShares:
           type: array
           description: "Required when jobType = shared. Each entry specifies a worker and their manual amount."
@@ -778,6 +783,8 @@ components:
               workerId: { type: integer }
               amount: { type: number }
         source: { type: string }
+        plateNumber: { type: string, description: "Vehicle plate number" }
+        carModel: { type: string, description: "Vehicle make / model" }
         paymentMethod: { type: string, enum: [cash, card] }
         grossAmount: { type: number, description: "Total amount paid by customer" }
         vatPaidByCustomer: { type: boolean, description: "Card only. true = customer paid VAT on top (workshop keeps full gross). false = VAT included in gross and is removed before splitting." }
