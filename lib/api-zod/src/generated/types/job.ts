@@ -38,6 +38,8 @@ export interface Job {
   plateNumber?: string | null;
   carModel?: string | null;
   notes?: string | null;
+  status?: string | null;
+  submittedByWorkerId?: number | null;
   expenseLines?: JobExpenseLine[];
   workerShares?: JobWorkerShare[];
   occurredAt: Date;
