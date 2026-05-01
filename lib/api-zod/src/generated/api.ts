@@ -249,7 +249,11 @@ export const ListJobsResponseItem = zod.object({
     .describe("Splittable amount = gross - VAT - expenses"),
   workerShare: zod.number(),
   workshopShare: zod.number(),
+  plateNumber: zod.string().nullish(),
+  carModel: zod.string().nullish(),
   notes: zod.string().nullish(),
+  status: zod.string().nullish(),
+  submittedByWorkerId: zod.number().nullish(),
   expenseLines: zod
     .array(
       zod.object({
@@ -296,6 +300,12 @@ export const CreateJobBody = zod.object({
     .describe(
       "Cash jobs only: which worker physically received the cash from the customer",
     ),
+  workerPercentOverride: zod
+    .number()
+    .optional()
+    .describe(
+      "Override the default worker pool percentage (0–100). Defaults to 50 for shared jobs.",
+    ),
   workerShares: zod
     .array(
       zod.object({
@@ -308,6 +318,8 @@ export const CreateJobBody = zod.object({
       "Required when jobType = shared. Each entry specifies a worker and their manual amount.",
     ),
   source: zod.string(),
+  plateNumber: zod.string().optional().describe("Vehicle plate number"),
+  carModel: zod.string().optional().describe("Vehicle make \/ model"),
   paymentMethod: zod.enum(["cash", "card"]),
   grossAmount: zod.number().describe("Total amount paid by customer"),
   vatPaidByCustomer: zod
@@ -393,7 +405,11 @@ export const UpdateJobExpensesResponse = zod.object({
     .describe("Splittable amount = gross - VAT - expenses"),
   workerShare: zod.number(),
   workshopShare: zod.number(),
+  plateNumber: zod.string().nullish(),
+  carModel: zod.string().nullish(),
   notes: zod.string().nullish(),
+  status: zod.string().nullish(),
+  submittedByWorkerId: zod.number().nullish(),
   expenseLines: zod
     .array(
       zod.object({
@@ -825,4 +841,26 @@ export const ListMyAttendanceRecordsResponseItem = zod.object({
 });
 export const ListMyAttendanceRecordsResponse = zod.array(
   ListMyAttendanceRecordsResponseItem,
+);
+
+/**
+ * @summary Get failed check-in attempts for today (admin/manager)
+ */
+export const GetFailedCheckInAttemptsQueryParams = zod.object({
+  date: zod.date().optional(),
+});
+
+export const GetFailedCheckInAttemptsResponseItem = zod.object({
+  id: zod.number(),
+  workerId: zod.number(),
+  workerName: zod.string(),
+  checkDate: zod.coerce.date(),
+  attemptedAt: zod.coerce.date(),
+  reason: zod.string().describe("location_denied | outside_zone"),
+  lat: zod.number().nullish(),
+  lng: zod.number().nullish(),
+  distanceMeters: zod.number().nullish(),
+});
+export const GetFailedCheckInAttemptsResponse = zod.array(
+  GetFailedCheckInAttemptsResponseItem,
 );
