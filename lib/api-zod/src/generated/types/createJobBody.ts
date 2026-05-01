@@ -17,19 +17,21 @@ export interface CreateJobBody {
   workerId?: number;
   /** Cash jobs only: which worker physically received the cash from the customer */
   cashReceivedByWorkerId?: number | null;
+  /** Override the default worker pool percentage (0–100). Defaults to 50 for shared jobs. */
+  workerPercentOverride?: number;
   /** Required when jobType = shared. Each entry specifies a worker and their manual amount. */
   workerShares?: CreateJobBodyWorkerSharesItem[];
   source: string;
+  /** Vehicle plate number */
+  plateNumber?: string;
+  /** Vehicle make / model */
+  carModel?: string;
   paymentMethod: CreateJobBodyPaymentMethod;
   /** Total amount paid by customer */
   grossAmount: number;
   /** Card only. true = customer paid VAT on top (workshop keeps full gross). false = VAT included in gross and is removed before splitting. */
   vatPaidByCustomer?: boolean;
   expenseLines?: CreateJobBodyExpenseLinesItem[];
-  plateNumber?: string;
-  carModel?: string;
   notes?: string;
   occurredAt?: Date;
-  /** Override the worker revenue share % for this job (0-100). */
-  workerPercentOverride?: number;
 }
