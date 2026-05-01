@@ -181,7 +181,11 @@ export interface Job {
   netAmount: number;
   workerShare: number;
   workshopShare: number;
+  plateNumber?: string | null;
+  carModel?: string | null;
   notes?: string | null;
+  status?: string | null;
+  submittedByWorkerId?: number | null;
   expenseLines?: JobExpenseLine[];
   workerShares?: JobWorkerShare[];
   occurredAt: string;
@@ -225,9 +229,15 @@ export interface CreateJobBody {
   workerId?: number;
   /** Cash jobs only: which worker physically received the cash from the customer */
   cashReceivedByWorkerId?: number | null;
+  /** Override the default worker pool percentage (0–100). Defaults to 50 for shared jobs. */
+  workerPercentOverride?: number;
   /** Required when jobType = shared. Each entry specifies a worker and their manual amount. */
   workerShares?: CreateJobBodyWorkerSharesItem[];
   source: string;
+  /** Vehicle plate number */
+  plateNumber?: string;
+  /** Vehicle make / model */
+  carModel?: string;
   paymentMethod: CreateJobBodyPaymentMethod;
   /** Total amount paid by customer */
   grossAmount: number;
@@ -513,6 +523,19 @@ export interface UpdateWorkerAttendanceModeBody {
   mode: string;
 }
 
+export interface FailedCheckInAttempt {
+  id: number;
+  workerId: number;
+  workerName: string;
+  checkDate: string;
+  attemptedAt: string;
+  /** location_denied | outside_zone */
+  reason: string;
+  lat?: number | null;
+  lng?: number | null;
+  distanceMeters?: number | null;
+}
+
 export type GetWorkerLedgerParams = {
   /**
    * Filter start date (inclusive)
@@ -615,4 +638,8 @@ export type ListAttendanceRecordsParams = {
   from?: string;
   to?: string;
   workerId?: number;
+};
+
+export type GetFailedCheckInAttemptsParams = {
+  date?: string;
 };
